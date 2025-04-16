@@ -170,7 +170,31 @@ class FotoViewModel(private val repository: FotoRepository) : ViewModel() {
         data class Success(val message: String, val id: Long = 0) : OperationStatus()
         data class Error(val message: String) : OperationStatus()
     }
+    /**
+     * Guarda una foto para una respuesta específica.
+     * Este método es una versión directa sin usar archivos temporales.
+     *
+     * @param respuestaId ID de la respuesta a la que pertenece la foto
+     * @param rutaArchivo Ruta del archivo de imagen
+     * @param descripcion Descripción opcional de la foto
+     */
+    suspend fun guardarFotoDirecta(respuestaId: Long, rutaArchivo: String, descripcion: String = ""): Long {
+        try {
+            // Guardar la foto en la base de datos
+            val fotoId = repository.guardarFoto(respuestaId, rutaArchivo, descripcion)
 
+            _operationStatus.value = OperationStatus.Success(
+                "Foto guardada correctamente",
+                fotoId
+            )
+            return fotoId
+        } catch (e: Exception) {
+            _operationStatus.value = OperationStatus.Error(
+                "Error al guardar foto: ${e.message ?: "desconocido"}"
+            )
+            throw e
+        }
+    }
     /**
      * Factory para crear instancias de FotoViewModel con el repositorio correcto.
      */
