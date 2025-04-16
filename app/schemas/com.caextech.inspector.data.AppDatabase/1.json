@@ -1,0 +1,470 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "9d3df7f2c8e3654a821bd22b2ce558b0",
+    "entities": [
+      {
+        "tableName": "caex",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`caexId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `numeroIdentificador` INTEGER NOT NULL, `modelo` TEXT NOT NULL, `fechaRegistro` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "caexId",
+            "columnName": "caexId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "numeroIdentificador",
+            "columnName": "numeroIdentificador",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modelo",
+            "columnName": "modelo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fechaRegistro",
+            "columnName": "fechaRegistro",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "caexId"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "categorias",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`categoriaId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `nombre` TEXT NOT NULL, `orden` INTEGER NOT NULL, `modeloAplicable` TEXT NOT NULL, `fechaCreacion` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "categoriaId",
+            "columnName": "categoriaId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nombre",
+            "columnName": "nombre",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "orden",
+            "columnName": "orden",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modeloAplicable",
+            "columnName": "modeloAplicable",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fechaCreacion",
+            "columnName": "fechaCreacion",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "categoriaId"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "preguntas",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`preguntaId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `texto` TEXT NOT NULL, `categoriaId` INTEGER NOT NULL, `orden` INTEGER NOT NULL, `modeloAplicable` TEXT NOT NULL, `fechaCreacion` INTEGER NOT NULL, FOREIGN KEY(`categoriaId`) REFERENCES `categorias`(`categoriaId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "preguntaId",
+            "columnName": "preguntaId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "texto",
+            "columnName": "texto",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoriaId",
+            "columnName": "categoriaId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "orden",
+            "columnName": "orden",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modeloAplicable",
+            "columnName": "modeloAplicable",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fechaCreacion",
+            "columnName": "fechaCreacion",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "preguntaId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_preguntas_categoriaId",
+            "unique": false,
+            "columnNames": [
+              "categoriaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_preguntas_categoriaId` ON `${TABLE_NAME}` (`categoriaId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "categorias",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "categoriaId"
+            ],
+            "referencedColumns": [
+              "categoriaId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "inspecciones",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`inspeccionId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `caexId` INTEGER NOT NULL, `tipo` TEXT NOT NULL, `estado` TEXT NOT NULL, `nombreInspector` TEXT NOT NULL, `nombreSupervisor` TEXT NOT NULL, `inspeccionRecepcionId` INTEGER, `fechaCreacion` INTEGER NOT NULL, `fechaFinalizacion` INTEGER, `comentariosGenerales` TEXT NOT NULL, FOREIGN KEY(`caexId`) REFERENCES `caex`(`caexId`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`inspeccionRecepcionId`) REFERENCES `inspecciones`(`inspeccionId`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "inspeccionId",
+            "columnName": "inspeccionId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "caexId",
+            "columnName": "caexId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tipo",
+            "columnName": "tipo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estado",
+            "columnName": "estado",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nombreInspector",
+            "columnName": "nombreInspector",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nombreSupervisor",
+            "columnName": "nombreSupervisor",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inspeccionRecepcionId",
+            "columnName": "inspeccionRecepcionId",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "fechaCreacion",
+            "columnName": "fechaCreacion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fechaFinalizacion",
+            "columnName": "fechaFinalizacion",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "comentariosGenerales",
+            "columnName": "comentariosGenerales",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "inspeccionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_inspecciones_caexId",
+            "unique": false,
+            "columnNames": [
+              "caexId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_inspecciones_caexId` ON `${TABLE_NAME}` (`caexId`)"
+          },
+          {
+            "name": "index_inspecciones_inspeccionRecepcionId",
+            "unique": false,
+            "columnNames": [
+              "inspeccionRecepcionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_inspecciones_inspeccionRecepcionId` ON `${TABLE_NAME}` (`inspeccionRecepcionId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "caex",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "caexId"
+            ],
+            "referencedColumns": [
+              "caexId"
+            ]
+          },
+          {
+            "table": "inspecciones",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "inspeccionRecepcionId"
+            ],
+            "referencedColumns": [
+              "inspeccionId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "respuestas",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`respuestaId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `inspeccionId` INTEGER NOT NULL, `preguntaId` INTEGER NOT NULL, `estado` TEXT NOT NULL, `comentarios` TEXT NOT NULL, `tipoAccion` TEXT, `idAvisoOrdenTrabajo` TEXT, `fechaCreacion` INTEGER NOT NULL, `fechaModificacion` INTEGER NOT NULL, FOREIGN KEY(`inspeccionId`) REFERENCES `inspecciones`(`inspeccionId`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`preguntaId`) REFERENCES `preguntas`(`preguntaId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "respuestaId",
+            "columnName": "respuestaId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inspeccionId",
+            "columnName": "inspeccionId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "preguntaId",
+            "columnName": "preguntaId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estado",
+            "columnName": "estado",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "comentarios",
+            "columnName": "comentarios",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tipoAccion",
+            "columnName": "tipoAccion",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "idAvisoOrdenTrabajo",
+            "columnName": "idAvisoOrdenTrabajo",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "fechaCreacion",
+            "columnName": "fechaCreacion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fechaModificacion",
+            "columnName": "fechaModificacion",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "respuestaId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_respuestas_inspeccionId",
+            "unique": false,
+            "columnNames": [
+              "inspeccionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_respuestas_inspeccionId` ON `${TABLE_NAME}` (`inspeccionId`)"
+          },
+          {
+            "name": "index_respuestas_preguntaId",
+            "unique": false,
+            "columnNames": [
+              "preguntaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_respuestas_preguntaId` ON `${TABLE_NAME}` (`preguntaId`)"
+          },
+          {
+            "name": "index_respuestas_inspeccionId_preguntaId",
+            "unique": true,
+            "columnNames": [
+              "inspeccionId",
+              "preguntaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_respuestas_inspeccionId_preguntaId` ON `${TABLE_NAME}` (`inspeccionId`, `preguntaId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "inspecciones",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "inspeccionId"
+            ],
+            "referencedColumns": [
+              "inspeccionId"
+            ]
+          },
+          {
+            "table": "preguntas",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "preguntaId"
+            ],
+            "referencedColumns": [
+              "preguntaId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "fotos",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`fotoId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `respuestaId` INTEGER NOT NULL, `rutaArchivo` TEXT NOT NULL, `descripcion` TEXT NOT NULL, `fechaCreacion` INTEGER NOT NULL, FOREIGN KEY(`respuestaId`) REFERENCES `respuestas`(`respuestaId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "fotoId",
+            "columnName": "fotoId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "respuestaId",
+            "columnName": "respuestaId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rutaArchivo",
+            "columnName": "rutaArchivo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "descripcion",
+            "columnName": "descripcion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fechaCreacion",
+            "columnName": "fechaCreacion",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "fotoId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_fotos_respuestaId",
+            "unique": false,
+            "columnNames": [
+              "respuestaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_fotos_respuestaId` ON `${TABLE_NAME}` (`respuestaId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "respuestas",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "respuestaId"
+            ],
+            "referencedColumns": [
+              "respuestaId"
+            ]
+          }
+        ]
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9d3df7f2c8e3654a821bd22b2ce558b0')"
+    ]
+  }
+}

@@ -1,3 +1,61 @@
 <resources>
     <string name="app_name">CAEXInspector</string>
+
+    <!-- General labels -->
+    <string name="add_new_item">Agregar nuevo ítem</string>
+    <string name="model_label">Modelo:</string>
+    <string name="registered_date_label">Fecha de registro:</string>
+    <string name="status_label">Estado:</string>
+    <string name="inspector_label">Inspector:</string>
+    <string name="date_label">Fecha:</string>
+    <string name="continue_inspection">Continuar</string>
+
+    <!-- CAEX Fragment -->
+    <string name="no_caex_available">No hay equipos CAEX disponibles</string>
+
+    <!-- Inspection Fragments -->
+    <string name="no_open_inspections">No hay inspecciones abiertas</string>
+    <string name="no_closed_inspections">No hay inspecciones cerradas</string>
+
+    <!-- Create Inspection -->
+    <string name="new_inspection">Nueva Inspección</string>
+    <string name="select_caex_model">Seleccione el modelo de CAEX</string>
+    <string name="caex_id_hint">Número identificador del CAEX</string>
+    <string name="inspector_name_hint">Nombre del inspector</string>
+    <string name="supervisor_name_hint">Nombre del supervisor</string>
+    <string name="date_time_hint">Fecha y hora</string>
+    <string name="start_inspection">Iniciar Inspección</string>
+
+    <!-- Inspection Questionnaire -->
+    <string name="inspection_questionnaire">Cuestionario de Inspección</string>
+    <string name="next_category">Siguiente categoría</string>
+    <string name="complete_category">Completar Categoría</string>
+    <string name="conforme">Conforme</string>
+    <string name="no_conforme">No Conforme</string>
+    <string name="comments_hint">Comentarios (obligatorio para No Conforme)</string>
+    <string name="photos_evidence">Evidencia fotográfica:</string>
+    <string name="add_photo">Agregar foto</string>
+    <string name="photo_evidence">Foto de evidencia</string>
+    <string name="delete_photo">Eliminar foto</string>
+
+    <!-- Photo Capture Fragment -->
+    <string name="add_photo_evidence">Agregar Evidencia Fotográfica</string>
+    <string name="choose_photo_source">Elige una fuente para la foto:</string>
+    <string name="take_photo">Tomar Foto</string>
+    <string name="select_from_gallery">Seleccionar de Galería</string>
+    <string name="photo_description_hint">Descripción de la foto (opcional)</string>
+    <string name="cancel">Cancelar</string>
+
+    <!-- No Conforme Summary -->
+    <string name="no_conforme_summary">Resumen No Conformes</string>
+    <string name="comments_label">Comentarios:</string>
+    <string name="aviso_action">Aviso (inmediato)</string>
+    <string name="ot_action">OT (programado)</string>
+    <string name="sap_id_hint">ID SAP (aviso u orden de trabajo)</string>
+    <string name="general_comments_hint">Comentarios generales</string>
+    <string name="generate_pdf">Generar PDF</string>
+    <string name="complete_inspection">Completar Inspección</string>
+
+    <!-- Menu options -->
+    <string name="action_export_history">Exportar Historial</string>
 </resources>

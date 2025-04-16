@@ -101,9 +101,12 @@ class CategoriaPreguntaViewModel(
                 _categoriaActual.value = categoria
             } else {
                 _operationStatus.value = OperationStatus.Error("Categoría no encontrada")
+                android.util.Log.e("CategoriaPreguntaViewModel", "Categoría $categoriaId no encontrada")
             }
         } catch (e: Exception) {
             _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
+            android.util.Log.e("CategoriaPreguntaViewModel", "Error al cargar categoría: ${e.message}")
+            e.printStackTrace()
         }
     }
 

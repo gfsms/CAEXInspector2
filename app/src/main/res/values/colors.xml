@@ -7,4 +7,14 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- App specific colors -->
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+    <color name="colorAccent">#FF4081</color>
+
+    <!-- Status colors -->
+    <color name="status_pending">#FFA000</color>     <!-- Amber 700 -->
+    <color name="status_conforme">#4CAF50</color>    <!-- Green 500 -->
+    <color name="status_no_conforme">#F44336</color> <!-- Red 500 -->
 </resources>
