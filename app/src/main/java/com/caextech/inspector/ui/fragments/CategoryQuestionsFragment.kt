@@ -20,6 +20,8 @@ import com.caextech.inspector.ui.adapters.QuestionAdapter
 import com.caextech.inspector.ui.viewmodels.CategoriaPreguntaViewModel
 import com.caextech.inspector.ui.viewmodels.FotoViewModel
 import com.caextech.inspector.ui.viewmodels.RespuestaViewModel
+import com.caextech.inspector.utils.Logger
+import com.caextech.inspector.utils.RespuestaTracker
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -27,6 +29,7 @@ import java.io.File
  * Fragment for displaying questions of a specific category in the inspection questionnaire.
  */
 class CategoryQuestionsFragment : Fragment() {
+    private val TAG = "CategoryQuestionsFragment"
 
     private var _binding: FragmentCategoryQuestionsBinding? = null
     private val binding get() = _binding!!
@@ -63,6 +66,8 @@ class CategoryQuestionsFragment : Fragment() {
 
         // Initialize activity result launchers
         initActivityResultLaunchers()
+
+        Logger.d(TAG, "Fragment created with inspeccionId: $inspeccionId, categoriaId: $categoriaId")
     }
 
     override fun onCreateView(
@@ -154,6 +159,7 @@ class CategoryQuestionsFragment : Fragment() {
         questionAdapter = QuestionAdapter(
             requireContext(),
             childFragmentManager,
+            inspeccionId, // Pasamos el ID de la inspección al adaptador
             onConformeSelected = { preguntaId ->
                 guardarRespuestaConforme(preguntaId)
             },
@@ -190,7 +196,7 @@ class CategoryQuestionsFragment : Fragment() {
             val preguntas = categoriaConPreguntas.getPreguntasParaModelo(modeloCAEX)
 
             // Debug log for questions
-            android.util.Log.d("CategoryQuestionsFragment", "Loaded ${preguntas.size} questions for category ${categoriaConPreguntas.categoria.nombre}")
+            Logger.d(TAG, "Loaded ${preguntas.size} questions for category ${categoriaConPreguntas.categoria.nombre}")
 
             // Update adapter with questions
             questionAdapter.updatePreguntas(preguntas)
@@ -202,7 +208,7 @@ class CategoryQuestionsFragment : Fragment() {
             categoriaId
         ).observe(viewLifecycleOwner) { respuestas ->
             // Debug log for responses
-            android.util.Log.d("CategoryQuestionsFragment", "Loaded ${respuestas.size} responses for this category")
+            Logger.d(TAG, "Loaded ${respuestas.size} responses for this category")
 
             // Update adapter with the questions and their answers
             questionAdapter.updateRespuestas(respuestas)
@@ -222,16 +228,6 @@ class CategoryQuestionsFragment : Fragment() {
     }
 
     /**
-     * Loads the responses for the specified questions.
-     *
-     * This is a placeholder method - in a real implementation, we would load
-     * responses for specific questions.
-     */
-    private fun loadRespuestasForPreguntas(preguntaIds: List<Long>) {
-        // Now handled directly by the observation of categoriaActual
-    }
-
-    /**
      * Saves a "Conforme" response for the given question.
      */
     private fun guardarRespuestaConforme(preguntaId: Long) {
@@ -240,7 +236,9 @@ class CategoryQuestionsFragment : Fragment() {
             try {
                 // Save the response using the ViewModel
                 respuestaViewModel.guardarRespuestaConforme(inspeccionId, preguntaId)
+                Logger.d(TAG, "Guardada respuesta CONFORME para pregunta $preguntaId")
             } catch (e: Exception) {
+                Logger.e(TAG, "Error al guardar respuesta: ${e.message}", e)
                 Toast.makeText(
                     requireContext(),
                     "Error al guardar respuesta: ${e.message}",
@@ -255,6 +253,7 @@ class CategoryQuestionsFragment : Fragment() {
      */
     private fun guardarRespuestaNoConforme(preguntaId: Long, comentarios: String) {
         if (comentarios.isBlank()) {
+            Logger.w(TAG, "Intento de guardar respuesta NO_CONFORME sin comentarios")
             Toast.makeText(
                 requireContext(),
                 "Debe ingresar comentarios para una respuesta No Conforme",
@@ -268,7 +267,9 @@ class CategoryQuestionsFragment : Fragment() {
             try {
                 // Save the response using the ViewModel
                 respuestaViewModel.guardarRespuestaNoConformeSimplificada(inspeccionId, preguntaId, comentarios)
+                Logger.d(TAG, "Guardada respuesta NO_CONFORME para pregunta $preguntaId")
             } catch (e: Exception) {
+                Logger.e(TAG, "Error al guardar respuesta: ${e.message}", e)
                 Toast.makeText(
                     requireContext(),
                     "Error al guardar respuesta: ${e.message}",

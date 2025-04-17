@@ -1,6 +1,7 @@
 package com.caextech.inspector.ui.fragments
 
 import android.app.Dialog
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -9,6 +10,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.ViewModelProvider
@@ -18,12 +20,16 @@ import com.caextech.inspector.R
 import com.caextech.inspector.databinding.FragmentPhotoCaptureBinding
 import com.caextech.inspector.ui.viewmodels.FotoViewModel
 import com.caextech.inspector.utils.FileUtils
+import com.caextech.inspector.utils.Logger
 import kotlinx.coroutines.launch
+import java.io.File
+import java.lang.ref.WeakReference
 
 /**
  * Fragmento de diálogo para capturar o seleccionar fotos para una respuesta No Conforme.
  */
 class PhotoCaptureFragment : DialogFragment() {
+    private val TAG = "PhotoCaptureFragment"
 
     private var _binding: FragmentPhotoCaptureBinding? = null
     private val binding get() = _binding!!
@@ -36,44 +42,20 @@ class PhotoCaptureFragment : DialogFragment() {
     private var tempImageUri: Uri? = null
     private var tempImagePath: String? = null
 
+    // Weak reference to the activity context to prevent leaks
+    private var activityContextRef: WeakReference<Context>? = null
+
     // Gestor para actividad de cámara
-    private val takePictureLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            // La foto fue tomada con éxito
-            tempImagePath?.let { path ->
-                guardarFoto(path)
-            } ?: run {
-                Toast.makeText(
-                    requireContext(),
-                    "Error: No se pudo obtener la ruta de la imagen",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-    }
+    private lateinit var takePictureLauncher: ActivityResultLauncher<Intent>
 
     // Gestor para selección de galería
-    private val selectPictureLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            // La foto fue seleccionada de la galería
-            result.data?.data?.let { uri ->
-                // Copiar la imagen a nuestra app
-                val path = FileUtils.copyImageToAppStorage(requireContext(), uri)
-                if (path != null) {
-                    guardarFoto(path)
-                } else {
-                    Toast.makeText(
-                        requireContext(),
-                        "Error al copiar la imagen seleccionada",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }
+    private lateinit var selectPictureLauncher: ActivityResultLauncher<Intent>
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        // Store a weak reference to the context
+        activityContextRef = WeakReference(context)
+        Logger.d(TAG, "Fragment attached to context")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,16 +67,19 @@ class PhotoCaptureFragment : DialogFragment() {
         }
 
         if (respuestaId == 0L) {
-            Toast.makeText(
-                requireContext(),
-                "Error: Se requiere un ID de respuesta válido",
-                Toast.LENGTH_SHORT
-            ).show()
-            dismiss()
+            Logger.e(TAG, "Error: ID de respuesta inválido")
+            safeShowToast("Error: Se requiere un ID de respuesta válido")
+            dismissSafely()
+            return
         }
+
+        // Initialize activity result launchers
+        initActivityResultLaunchers()
 
         // Configurar el estilo del diálogo
         setStyle(STYLE_NORMAL, R.style.Theme_CAEXInspector_Dialog)
+
+        Logger.d(TAG, "Fragment created with respuestaId: $respuestaId")
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
@@ -115,18 +100,117 @@ class PhotoCaptureFragment : DialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Inicializar ViewModel
-        val application = requireActivity().application as CAEXInspectorApp
-        fotoViewModel = ViewModelProvider(
-            this,
-            FotoViewModel.FotoViewModelFactory(application.fotoRepository)
-        )[FotoViewModel::class.java]
+        Logger.d(TAG, "Fragment view created")
 
-        // Configurar botones
-        setupButtons()
+        try {
+            // Inicializar ViewModel - use the application context which is always available
+            val application = requireActivity().application as CAEXInspectorApp
+            fotoViewModel = ViewModelProvider(
+                this,
+                FotoViewModel.FotoViewModelFactory(application.fotoRepository)
+            )[FotoViewModel::class.java]
 
-        // Observar eventos del ViewModel
-        observeViewModel()
+            // Configurar botones
+            setupButtons()
+
+            // Observar eventos del ViewModel
+            observeViewModel()
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error in onViewCreated: ${e.message}", e)
+            safeShowToast("Error al inicializar: ${e.message}")
+            dismissSafely()
+        }
+    }
+
+    /**
+     * Initializes activity result launchers
+     */
+    private fun initActivityResultLaunchers() {
+        Logger.d(TAG, "Initializing activity result launchers")
+
+        // Launcher for taking a picture with the camera
+        takePictureLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            Logger.d(TAG, "Camera result received: ${result.resultCode}")
+
+            if (!isAdded) {
+                Logger.w(TAG, "Fragment not attached when camera result received")
+                return@registerForActivityResult
+            }
+
+            if (result.resultCode == android.app.Activity.RESULT_OK) {
+                try {
+                    tempImagePath?.let { path ->
+                        Logger.d(TAG, "Photo captured successfully, path: $path")
+                        // Verify the file exists
+                        val file = File(path)
+                        if (file.exists() && file.length() > 0) {
+                            guardarFoto(path)
+                        } else {
+                            Logger.e(TAG, "Photo file doesn't exist or is empty: $path")
+                            safeShowToast("Error: La foto no se guardó correctamente")
+                        }
+                    } ?: run {
+                        Logger.e(TAG, "No temporary image path available")
+                        safeShowToast("Error: No se guardó la ruta de la imagen")
+                    }
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Error processing camera result: ${e.message}", e)
+                    safeShowToast("Error al procesar la foto: ${e.message}")
+                }
+            } else {
+                Logger.d(TAG, "Camera capture cancelled or failed")
+            }
+        }
+
+        // Launcher for selecting a picture from the gallery
+        selectPictureLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            Logger.d(TAG, "Gallery result received: ${result.resultCode}")
+
+            if (!isAdded) {
+                Logger.w(TAG, "Fragment not attached when gallery result received")
+                return@registerForActivityResult
+            }
+
+            if (result.resultCode == android.app.Activity.RESULT_OK) {
+                try {
+                    result.data?.data?.let { uri ->
+                        Logger.d(TAG, "Photo selected from gallery: $uri")
+                        processGalleryImage(uri)
+                    } ?: run {
+                        Logger.e(TAG, "No URI returned from gallery")
+                        safeShowToast("Error: No se recibió la imagen seleccionada")
+                    }
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Error processing gallery result: ${e.message}", e)
+                    safeShowToast("Error al procesar la imagen seleccionada: ${e.message}")
+                }
+            }
+        }
+    }
+
+    /**
+     * Process an image selected from the gallery
+     */
+    private fun processGalleryImage(uri: Uri) {
+        try {
+            // Get the activity context safely
+            val context = activityContextRef?.get() ?: requireContext()
+
+            // Copy the image to our app's storage
+            val path = FileUtils.copyImageToAppStorage(context, uri)
+            if (path != null) {
+                guardarFoto(path)
+            } else {
+                safeShowToast("Error al copiar la imagen seleccionada")
+            }
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error processing gallery image: ${e.message}", e)
+            safeShowToast("Error al procesar la imagen: ${e.message}")
+        }
     }
 
     private fun setupButtons() {
@@ -142,28 +226,27 @@ class PhotoCaptureFragment : DialogFragment() {
 
         // Botón de cancelar
         binding.cancelButton.setOnClickListener {
-            dismiss()
+            dismissSafely()
         }
     }
 
     private fun observeViewModel() {
         // Observar eventos de operaciones
         fotoViewModel.operationStatus.observe(viewLifecycleOwner) { status ->
+            if (!isAdded) {
+                Logger.w(TAG, "Fragment not attached when operation status received")
+                return@observe
+            }
+
             when (status) {
                 is FotoViewModel.OperationStatus.Success -> {
-                    Toast.makeText(
-                        requireContext(),
-                        "Foto guardada correctamente",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    dismiss()
+                    Logger.d(TAG, "Photo operation successful: ${status.message}")
+                    safeShowToast("Foto guardada correctamente")
+                    dismissSafely()
                 }
                 is FotoViewModel.OperationStatus.Error -> {
-                    Toast.makeText(
-                        requireContext(),
-                        "Error: ${status.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Logger.e(TAG, "Photo operation error: ${status.message}")
+                    safeShowToast("Error: ${status.message}")
                 }
             }
         }
@@ -171,51 +254,131 @@ class PhotoCaptureFragment : DialogFragment() {
 
     private fun capturarFoto() {
         try {
-            // Crear archivo temporal para la foto
-            val (uri, path) = FileUtils.createTempImageFile(requireContext())
+            if (!isAdded) {
+                Logger.w(TAG, "Fragment not attached when trying to capture photo")
+                return
+            }
+
+            Logger.d(TAG, "Starting photo capture")
+
+            // Get the activity context safely
+            val context = activityContextRef?.get() ?: requireContext()
+
+            // Create a temporary file for the photo
+            val (uri, path) = FileUtils.createTempImageFile(context)
             tempImageUri = uri
             tempImagePath = path
+            Logger.d(TAG, "Temporary file created: $path")
 
-            // Iniciar la cámara con el URI del archivo
+            // Create camera intent
             val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                 putExtra(MediaStore.EXTRA_OUTPUT, uri)
             }
 
-            takePictureLauncher.launch(takePictureIntent)
+            // Check if there's a camera app available
+            val packageManager = context.packageManager
+            if (takePictureIntent.resolveActivity(packageManager) != null) {
+                takePictureLauncher.launch(takePictureIntent)
+                Logger.d(TAG, "Camera intent launched")
+            } else {
+                Logger.e(TAG, "No camera app available")
+                safeShowToast("No se encontró una aplicación de cámara")
+            }
         } catch (e: Exception) {
-            Toast.makeText(
-                requireContext(),
-                "Error al iniciar la cámara: ${e.message}",
-                Toast.LENGTH_SHORT
-            ).show()
+            Logger.e(TAG, "Error starting camera: ${e.message}", e)
+            safeShowToast("Error al iniciar la cámara: ${e.message}")
         }
     }
 
     private fun seleccionarFoto() {
-        // Iniciar la selección de foto de la galería
-        val selectPictureIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        selectPictureLauncher.launch(selectPictureIntent)
+        try {
+            if (!isAdded) {
+                Logger.w(TAG, "Fragment not attached when trying to select photo")
+                return
+            }
+
+            Logger.d(TAG, "Starting gallery selection")
+
+            // Create gallery intent
+            val selectPictureIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+            selectPictureLauncher.launch(selectPictureIntent)
+            Logger.d(TAG, "Gallery intent launched")
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error starting gallery: ${e.message}", e)
+            safeShowToast("Error al abrir la galería: ${e.message}")
+        }
     }
 
     private fun guardarFoto(path: String) {
-        // Usar lifecycleScope para ejecutar la función suspendida
+        if (!isAdded) {
+            Logger.w(TAG, "Fragment not attached when trying to save photo")
+            return
+        }
+
+        Logger.d(TAG, "Saving photo at path: $path for respuestaId: $respuestaId")
+
+        // Use viewLifecycleOwner.lifecycleScope to launch a coroutine
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val descripcion = binding.descriptionEditText.text.toString()
                 fotoViewModel.guardarFotoDirecta(respuestaId, path, descripcion)
+                Logger.d(TAG, "Photo save request sent to ViewModel")
             } catch (e: Exception) {
-                Toast.makeText(
-                    requireContext(),
-                    "Error al guardar la foto: ${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Logger.e(TAG, "Error saving photo: ${e.message}", e)
+                safeShowToast("Error al guardar la foto: ${e.message}")
             }
+        }
+    }
+
+    /**
+     * Shows a toast message safely, checking if the fragment is attached
+     */
+    private fun safeShowToast(message: String) {
+        if (isAdded) {
+            try {
+                // Try to use the activity context first
+                val context = activityContextRef?.get() ?: requireContext()
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Logger.e(TAG, "Error showing toast: ${e.message}", e)
+                // If all else fails, try using the application context as a last resort
+                try {
+                    Toast.makeText(requireActivity().applicationContext, message, Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Could not show toast with application context either: ${e.message}")
+                }
+            }
+        } else {
+            Logger.w(TAG, "Cannot show toast - fragment not attached. Message: $message")
+        }
+    }
+
+    /**
+     * Dismisses the dialog safely, checking if it's attached and not already dismissed
+     */
+    private fun dismissSafely() {
+        if (isAdded && !requireActivity().isFinishing) {
+            try {
+                dismiss()
+                Logger.d(TAG, "Dialog dismissed safely")
+            } catch (e: Exception) {
+                Logger.e(TAG, "Error dismissing dialog: ${e.message}", e)
+            }
+        } else {
+            Logger.w(TAG, "Cannot dismiss - fragment not attached or activity finishing")
         }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        Logger.d(TAG, "Fragment view destroyed")
         _binding = null
+    }
+
+    override fun onDetach() {
+        super.onDetach()
+        Logger.d(TAG, "Fragment detached from context")
+        activityContextRef = null
     }
 
     companion object {

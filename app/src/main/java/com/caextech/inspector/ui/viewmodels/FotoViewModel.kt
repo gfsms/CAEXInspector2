@@ -9,7 +9,10 @@ import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.caextech.inspector.data.entities.Foto
 import com.caextech.inspector.data.repository.FotoRepository
+import com.caextech.inspector.utils.Logger
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * ViewModel para la gestión de fotos de evidencia.
@@ -18,6 +21,7 @@ import kotlinx.coroutines.launch
  * con las fotos de manera coherente con el ciclo de vida de la UI.
  */
 class FotoViewModel(private val repository: FotoRepository) : ViewModel() {
+    private val TAG = "FotoViewModel"
 
     // LiveData para notificar eventos de operaciones
     private val _operationStatus = MutableLiveData<OperationStatus>()
@@ -55,14 +59,24 @@ class FotoViewModel(private val repository: FotoRepository) : ViewModel() {
      * Crea un archivo temporal para una nueva foto de la cámara.
      */
     fun prepararArchivoTemporalParaFoto() {
-        try {
-            val (uri, path) = repository.crearArchivoTemporalParaFoto()
-            _tempPhotoUri.value = uri
-            _tempPhotoPath.value = path
-        } catch (e: Exception) {
-            _operationStatus.value = OperationStatus.Error(
-                "Error al crear archivo temporal: ${e.message ?: "desconocido"}"
-            )
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                Logger.d(TAG, "Preparando archivo temporal para foto")
+                val (uri, path) = repository.crearArchivoTemporalParaFoto()
+
+                withContext(Dispatchers.Main) {
+                    _tempPhotoUri.value = uri
+                    _tempPhotoPath.value = path
+                    Logger.d(TAG, "Archivo temporal preparado: $path")
+                }
+            } catch (e: Exception) {
+                Logger.e(TAG, "Error al crear archivo temporal: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    _operationStatus.value = OperationStatus.Error(
+                        "Error al crear archivo temporal: ${e.message ?: "desconocido"}"
+                    )
+                }
+            }
         }
     }
 
@@ -72,27 +86,36 @@ class FotoViewModel(private val repository: FotoRepository) : ViewModel() {
      * @param respuestaId ID de la respuesta a la que pertenece esta foto
      * @param descripcion Descripción opcional de la foto
      */
-    fun guardarFotoTomada(respuestaId: Long, descripcion: String = "") = viewModelScope.launch {
+    fun guardarFotoTomada(respuestaId: Long, descripcion: String = "") = viewModelScope.launch(Dispatchers.IO) {
         try {
             // Verificar que tenemos una ruta de foto temporal
             val tempPath = _tempPhotoPath.value
                 ?: throw IllegalStateException("No hay foto temporal para guardar")
 
+            Logger.d(TAG, "Guardando foto tomada para respuestaId: $respuestaId, path: $tempPath")
+
             // Guardar la foto en la base de datos
             val fotoId = repository.guardarFoto(respuestaId, tempPath, descripcion)
 
             // Limpiar variables temporales
-            _tempPhotoUri.value = null
-            _tempPhotoPath.value = null
+            withContext(Dispatchers.Main) {
+                _tempPhotoUri.value = null
+                _tempPhotoPath.value = null
 
-            _operationStatus.value = OperationStatus.Success(
-                "Foto guardada correctamente",
-                fotoId
-            )
+                _operationStatus.value = OperationStatus.Success(
+                    "Foto guardada correctamente",
+                    fotoId
+                )
+            }
+
+            Logger.d(TAG, "Foto guardada con ID: $fotoId")
         } catch (e: Exception) {
-            _operationStatus.value = OperationStatus.Error(
-                "Error al guardar foto: ${e.message ?: "desconocido"}"
-            )
+            Logger.e(TAG, "Error al guardar foto tomada: ${e.message}", e)
+            withContext(Dispatchers.Main) {
+                _operationStatus.value = OperationStatus.Error(
+                    "Error al guardar foto: ${e.message ?: "desconocido"}"
+                )
+            }
         }
     }
 
@@ -107,8 +130,10 @@ class FotoViewModel(private val repository: FotoRepository) : ViewModel() {
         respuestaId: Long,
         uri: Uri,
         descripcion: String = ""
-    ) = viewModelScope.launch {
+    ) = viewModelScope.launch(Dispatchers.IO) {
         try {
+            Logger.d(TAG, "Guardando foto seleccionada para respuestaId: $respuestaId, uri: $uri")
+
             // Copiar la imagen desde la URI temporal a un archivo permanente
             val rutaArchivo = repository.copiarImagenDesdeTemporal(uri)
                 ?: throw IllegalStateException("Error al copiar la imagen")
@@ -116,14 +141,21 @@ class FotoViewModel(private val repository: FotoRepository) : ViewModel() {
             // Guardar la foto en la base de datos
             val fotoId = repository.guardarFoto(respuestaId, rutaArchivo, descripcion)
 
-            _operationStatus.value = OperationStatus.Success(
-                "Foto guardada correctamente",
-                fotoId
-            )
+            withContext(Dispatchers.Main) {
+                _operationStatus.value = OperationStatus.Success(
+                    "Foto guardada correctamente",
+                    fotoId
+                )
+            }
+
+            Logger.d(TAG, "Foto seleccionada guardada con ID: $fotoId")
         } catch (e: Exception) {
-            _operationStatus.value = OperationStatus.Error(
-                "Error al guardar foto: ${e.message ?: "desconocido"}"
-            )
+            Logger.e(TAG, "Error al guardar foto seleccionada: ${e.message}", e)
+            withContext(Dispatchers.Main) {
+                _operationStatus.value = OperationStatus.Error(
+                    "Error al guardar foto: ${e.message ?: "desconocido"}"
+                )
+            }
         }
     }
 
@@ -132,14 +164,23 @@ class FotoViewModel(private val repository: FotoRepository) : ViewModel() {
      *
      * @param foto La foto a eliminar
      */
-    fun deleteFoto(foto: Foto) = viewModelScope.launch {
+    fun deleteFoto(foto: Foto) = viewModelScope.launch(Dispatchers.IO) {
         try {
+            Logger.d(TAG, "Eliminando foto: ${foto.fotoId}, ruta: ${foto.rutaArchivo}")
             repository.deleteFoto(foto)
-            _operationStatus.value = OperationStatus.Success("Foto eliminada correctamente")
+
+            withContext(Dispatchers.Main) {
+                _operationStatus.value = OperationStatus.Success("Foto eliminada correctamente")
+            }
+
+            Logger.d(TAG, "Foto eliminada correctamente")
         } catch (e: Exception) {
-            _operationStatus.value = OperationStatus.Error(
-                "Error al eliminar foto: ${e.message ?: "desconocido"}"
-            )
+            Logger.e(TAG, "Error al eliminar foto: ${e.message}", e)
+            withContext(Dispatchers.Main) {
+                _operationStatus.value = OperationStatus.Error(
+                    "Error al eliminar foto: ${e.message ?: "desconocido"}"
+                )
+            }
         }
     }
 
@@ -151,13 +192,18 @@ class FotoViewModel(private val repository: FotoRepository) : ViewModel() {
      */
     fun countFotosByRespuesta(respuestaId: Long): LiveData<Int> {
         val result = MutableLiveData<Int>()
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val count = repository.countFotosByRespuesta(respuestaId)
-                result.value = count
+                withContext(Dispatchers.Main) {
+                    result.value = count
+                }
             } catch (e: Exception) {
-                _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
-                result.value = 0
+                Logger.e(TAG, "Error al contar fotos: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
+                    result.value = 0
+                }
             }
         }
         return result
@@ -170,6 +216,7 @@ class FotoViewModel(private val repository: FotoRepository) : ViewModel() {
         data class Success(val message: String, val id: Long = 0) : OperationStatus()
         data class Error(val message: String) : OperationStatus()
     }
+
     /**
      * Guarda una foto para una respuesta específica.
      * Este método es una versión directa sin usar archivos temporales.
@@ -179,22 +226,34 @@ class FotoViewModel(private val repository: FotoRepository) : ViewModel() {
      * @param descripcion Descripción opcional de la foto
      */
     suspend fun guardarFotoDirecta(respuestaId: Long, rutaArchivo: String, descripcion: String = ""): Long {
-        try {
-            // Guardar la foto en la base de datos
-            val fotoId = repository.guardarFoto(respuestaId, rutaArchivo, descripcion)
+        return withContext(Dispatchers.IO) {
+            try {
+                Logger.d(TAG, "Guardando foto directamente para respuestaId: $respuestaId, ruta: $rutaArchivo")
 
-            _operationStatus.value = OperationStatus.Success(
-                "Foto guardada correctamente",
+                // Guardar la foto en la base de datos
+                val fotoId = repository.guardarFoto(respuestaId, rutaArchivo, descripcion)
+
+                withContext(Dispatchers.Main) {
+                    _operationStatus.value = OperationStatus.Success(
+                        "Foto guardada correctamente",
+                        fotoId
+                    )
+                }
+
+                Logger.d(TAG, "Foto guardada directamente con ID: $fotoId")
                 fotoId
-            )
-            return fotoId
-        } catch (e: Exception) {
-            _operationStatus.value = OperationStatus.Error(
-                "Error al guardar foto: ${e.message ?: "desconocido"}"
-            )
-            throw e
+            } catch (e: Exception) {
+                Logger.e(TAG, "Error al guardar foto directamente: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    _operationStatus.value = OperationStatus.Error(
+                        "Error al guardar foto: ${e.message ?: "desconocido"}"
+                    )
+                }
+                throw e
+            }
         }
     }
+
     /**
      * Factory para crear instancias de FotoViewModel con el repositorio correcto.
      */
