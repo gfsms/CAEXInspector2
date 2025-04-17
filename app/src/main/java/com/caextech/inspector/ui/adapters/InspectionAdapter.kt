@@ -6,9 +6,11 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.caextech.inspector.R
 import com.caextech.inspector.data.entities.Inspeccion
 import com.caextech.inspector.data.relations.InspeccionConCAEX
 import com.caextech.inspector.databinding.ItemInspectionBinding
+import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -58,7 +60,23 @@ class InspectionAdapter(private val onItemClick: (InspeccionConCAEX) -> Unit) :
             binding.inspectionTitleText.text = inspeccionConCAEX.getTituloDescriptivo()
 
             // Set status
-            binding.statusText.text = inspeccionConCAEX.getEstadoDescriptivo()
+            when (inspeccion.estado) {
+                Inspeccion.ESTADO_ABIERTA -> {
+                    binding.statusText.text = "Estado: Abierta"
+                    binding.statusText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.status_pending))
+                }
+                Inspeccion.ESTADO_PENDIENTE_CIERRE -> {
+                    binding.statusText.text = "Estado: Pendiente de cierre"
+                    binding.statusText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.status_pendiente_cierre))
+                }
+                Inspeccion.ESTADO_CERRADA -> {
+                    binding.statusText.text = "Estado: Cerrada"
+                    binding.statusText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.colorPrimary))
+                }
+                else -> {
+                    binding.statusText.text = inspeccionConCAEX.getEstadoDescriptivo()
+                }
+            }
 
             // Set inspector name
             binding.inspectorText.text = inspeccion.nombreInspector
@@ -68,7 +86,7 @@ class InspectionAdapter(private val onItemClick: (InspeccionConCAEX) -> Unit) :
             binding.dateText.text = sdf.format(Date(inspeccion.fechaCreacion))
 
             // Show or hide continue button depending on inspection state
-            binding.continueButton.visibility = if (inspeccion.estado == Inspeccion.ESTADO_ABIERTA) {
+            binding.continueButton.visibility = if (inspeccion.estado != Inspeccion.ESTADO_CERRADA) {
                 View.VISIBLE
             } else {
                 View.GONE

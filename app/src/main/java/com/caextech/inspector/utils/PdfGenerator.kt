@@ -171,18 +171,7 @@ object PdfGenerator {
         commentsCell.setPadding(5f)
         itemTable.addCell(commentsCell)
 
-        // Action type and SAP ID
-        val actionType = when (respuesta.respuesta.tipoAccion) {
-            "INMEDIATO" -> "Aviso (inmediato)"
-            "PROGRAMADO" -> "OT (programado)"
-            else -> "No especificado"
-        }
-
-        val actionCell = PdfPCell()
-        actionCell.addElement(Paragraph("Tipo de acción: $actionType", SMALL_FONT))
-        actionCell.addElement(Paragraph("ID SAP: ${respuesta.respuesta.idAvisoOrdenTrabajo ?: "N/A"}", SMALL_FONT))
-        actionCell.setPadding(5f)
-        itemTable.addCell(actionCell)
+        // Removed Action type and SAP ID section
 
         // Photos
         if (respuesta.tieneFotos()) {

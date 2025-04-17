@@ -29,7 +29,12 @@ class InspeccionRepository(
 
     // Obtener inspecciones abiertas con CAEX como Flow
     val inspeccionesAbiertasConCAEX: Flow<List<InspeccionConCAEX>> =
-        inspeccionDao.getInspeccionesConCAEXByEstado(Inspeccion.ESTADO_ABIERTA)
+        inspeccionDao.getInspeccionesConCAEXByEstados(
+            listOf(Inspeccion.ESTADO_ABIERTA, Inspeccion.ESTADO_PENDIENTE_CIERRE)
+        )
+    // Nueva propiedad específicamente para inspecciones pendientes de cierre
+    val inspeccionesPendienteCierreConCAEX: Flow<List<InspeccionConCAEX>> =
+        inspeccionDao.getInspeccionesConCAEXByEstado(Inspeccion.ESTADO_PENDIENTE_CIERRE)
 
     // Obtener inspecciones cerradas con CAEX como Flow
     val inspeccionesCerradasConCAEX: Flow<List<InspeccionConCAEX>> =
@@ -91,8 +96,24 @@ class InspeccionRepository(
 
         return inspeccionDao.insertInspeccion(inspeccion)
     }
-
-    // Cerrar una inspección
+    /**
+     * Obtiene inspecciones con CAEX que coincidan con cualquiera de los estados especificados.
+     *
+     * @param estados Lista de estados de inspección
+     * @return Flow con la lista de inspecciones con CAEX
+     */
+    fun getInspeccionesConCAEXByEstados(estados: List<String>): Flow<List<InspeccionConCAEX>> {
+        return inspeccionDao.getInspeccionesConCAEXByEstados(estados)
+    }
+    /**
+     * Cierra una inspección.
+     * Para inspecciones de tipo RECEPCION, cambia el estado a PENDIENTE_CIERRE.
+     * Para inspecciones de tipo ENTREGA, cambia el estado a CERRADA.
+     *
+     * @param inspeccionId ID de la inspección
+     * @param comentariosGenerales Comentarios generales sobre la inspección
+     * @return true si la operación fue exitosa, false en caso contrario
+     */
     suspend fun cerrarInspeccion(inspeccionId: Long, comentariosGenerales: String = ""): Boolean {
         // Verificar que la inspección existe
         val inspeccion = inspeccionDao.getInspeccionById(inspeccionId)
@@ -100,7 +121,7 @@ class InspeccionRepository(
 
         // Verificar que la inspección está abierta
         if (inspeccion.estado != Inspeccion.ESTADO_ABIERTA) {
-            throw IllegalArgumentException("La inspección con ID $inspeccionId ya está cerrada")
+            throw IllegalArgumentException("La inspección con ID $inspeccionId ya está cerrada o pendiente de cierre")
         }
 
         // Obtener el modelo del CAEX para saber cuántas preguntas debe tener
@@ -118,9 +139,16 @@ class InspeccionRepository(
             return false
         }
 
+        // Determinar el nuevo estado según el tipo de inspección
+        val nuevoEstado = when (inspeccion.tipo) {
+            Inspeccion.TIPO_RECEPCION -> Inspeccion.ESTADO_PENDIENTE_CIERRE
+            Inspeccion.TIPO_ENTREGA -> Inspeccion.ESTADO_CERRADA
+            else -> Inspeccion.ESTADO_CERRADA // Por defecto, cerrar
+        }
+
         // Actualizar la inspección
         val inspeccionActualizada = inspeccion.copy(
-            estado = Inspeccion.ESTADO_CERRADA,
+            estado = nuevoEstado,
             fechaFinalizacion = System.currentTimeMillis(),
             comentariosGenerales = comentariosGenerales
         )
@@ -128,13 +156,20 @@ class InspeccionRepository(
         inspeccionDao.updateInspeccion(inspeccionActualizada)
         return true
     }
-
     // Obtener inspecciones por CAEX como Flow
     fun getInspeccionesByCAEX(caexId: Long): Flow<List<InspeccionConCAEX>> {
         return inspeccionDao.getInspeccionesConCAEXByEstado(Inspeccion.ESTADO_ABIERTA)
             .map { inspecciones -> inspecciones.filter { it.inspeccion.caexId == caexId } }
     }
-
+    /**
+     * Obtiene inspecciones con CAEX para un estado específico.
+     *
+     * @param estado Estado de las inspecciones a buscar
+     * @return Flow con la lista de inspecciones con CAEX
+     */
+    fun getInspeccionesConCAEXByEstado(estado: String): Flow<List<InspeccionConCAEX>> {
+        return inspeccionDao.getInspeccionesConCAEXByEstado(estado)
+    }
     // Obtener inspecciones por modelo de CAEX, estado y tipo
     fun getInspeccionesByModeloEstadoYTipo(
         modeloCAEX: String,

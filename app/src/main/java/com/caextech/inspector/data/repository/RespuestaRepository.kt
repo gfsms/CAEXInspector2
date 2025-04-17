@@ -240,7 +240,7 @@ class RespuestaRepository(private val respuestaDao: RespuestaDao) {
      * Actualiza una respuesta No Conforme con los detalles completos.
      *
      * @param respuestaId ID de la respuesta
-     * @param comentarios Comentarios sobre el problema
+     * @param comentarios Comentarios sobre el problema (si es vacío, mantiene los existentes)
      * @param tipoAccion Tipo de acción (INMEDIATO o PROGRAMADO)
      * @param idAvisoOrdenTrabajo ID del aviso o la orden de trabajo asociada
      * @return true si la actualización fue exitosa, false en caso contrario
@@ -251,38 +251,43 @@ class RespuestaRepository(private val respuestaDao: RespuestaDao) {
         tipoAccion: String,
         idAvisoOrdenTrabajo: String
     ): Boolean {
-        // Validar campos obligatorios
-        if (comentarios.isBlank()) {
-            throw IllegalArgumentException("Los comentarios son obligatorios para una respuesta No Conforme")
+        try {
+            // Validar el tipo de acción
+            if (tipoAccion != Respuesta.ACCION_INMEDIATO && tipoAccion != Respuesta.ACCION_PROGRAMADO) {
+                throw IllegalArgumentException("El tipo de acción debe ser INMEDIATO o PROGRAMADO")
+            }
+
+            // Validar que el ID SAP no esté vacío
+            if (idAvisoOrdenTrabajo.isBlank()) {
+                throw IllegalArgumentException("El ID de aviso u orden de trabajo es obligatorio")
+            }
+
+            // Obtener la respuesta actual
+            val respuestaActual = respuestaDao.getRespuestaById(respuestaId)
+                ?: throw IllegalArgumentException("La respuesta con ID $respuestaId no existe")
+
+            // Verificar que sea una respuesta No Conforme
+            if (respuestaActual.estado != Respuesta.ESTADO_NO_CONFORME) {
+                throw IllegalArgumentException("Solo se pueden actualizar respuestas No Conformes")
+            }
+
+            // Mantener los comentarios existentes si no se proporcionan nuevos
+            val comentariosFinales = if (comentarios.isBlank()) respuestaActual.comentarios else comentarios
+
+            // Actualizar la respuesta
+            val respuestaActualizada = respuestaActual.copy(
+                comentarios = comentariosFinales,
+                tipoAccion = tipoAccion,
+                idAvisoOrdenTrabajo = idAvisoOrdenTrabajo,
+                fechaModificacion = System.currentTimeMillis()
+            )
+
+            respuestaDao.updateRespuesta(respuestaActualizada)
+            return true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return false
         }
-
-        if (tipoAccion != Respuesta.ACCION_INMEDIATO && tipoAccion != Respuesta.ACCION_PROGRAMADO) {
-            throw IllegalArgumentException("El tipo de acción debe ser INMEDIATO o PROGRAMADO")
-        }
-
-        if (idAvisoOrdenTrabajo.isBlank()) {
-            throw IllegalArgumentException("El ID de aviso u orden de trabajo es obligatorio")
-        }
-
-        // Obtener la respuesta actual
-        val respuestaActual = respuestaDao.getRespuestaById(respuestaId)
-            ?: throw IllegalArgumentException("La respuesta con ID $respuestaId no existe")
-
-        // Verificar que sea una respuesta No Conforme
-        if (respuestaActual.estado != Respuesta.ESTADO_NO_CONFORME) {
-            throw IllegalArgumentException("Solo se pueden actualizar respuestas No Conformes")
-        }
-
-        // Actualizar la respuesta
-        val respuestaActualizada = respuestaActual.copy(
-            comentarios = comentarios,
-            tipoAccion = tipoAccion,
-            idAvisoOrdenTrabajo = idAvisoOrdenTrabajo,
-            fechaModificacion = System.currentTimeMillis()
-        )
-
-        respuestaDao.updateRespuesta(respuestaActualizada)
-        return true
     }
 
     /**

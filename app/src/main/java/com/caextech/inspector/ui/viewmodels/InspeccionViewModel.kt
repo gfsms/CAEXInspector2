@@ -34,8 +34,10 @@ class InspeccionViewModel(
         inspeccionRepository.allInspeccionesConCAEX.asLiveData()
 
     // LiveData con inspecciones abiertas
-    val inspeccionesAbiertasConCAEX: LiveData<List<InspeccionConCAEX>> =
-        inspeccionRepository.inspeccionesAbiertasConCAEX.asLiveData()
+    val inspeccionesAbiertasConCAEX: LiveData<List<InspeccionConCAEX>>
+        get() = inspeccionRepository.getInspeccionesConCAEXByEstados(
+            listOf(Inspeccion.ESTADO_ABIERTA, Inspeccion.ESTADO_PENDIENTE_CIERRE)
+        ).asLiveData()
 
     // LiveData con inspecciones cerradas
     val inspeccionesCerradasConCAEX: LiveData<List<InspeccionConCAEX>> =
@@ -44,6 +46,9 @@ class InspeccionViewModel(
     // LiveData con inspecciones de recepción abiertas
     val inspeccionesRecepcionAbiertasConCAEX: LiveData<List<InspeccionConCAEX>> =
         inspeccionRepository.inspeccionesRecepcionAbiertasConCAEX.asLiveData()
+
+    val inspeccionesPendienteCierreConCAEX: LiveData<List<InspeccionConCAEX>>
+        get() = inspeccionRepository.getInspeccionesConCAEXByEstado(Inspeccion.ESTADO_PENDIENTE_CIERRE).asLiveData()
 
     /**
      * Busca un CAEX por su número identificador y modelo, lo crea si no existe,

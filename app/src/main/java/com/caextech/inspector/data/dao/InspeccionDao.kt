@@ -68,10 +68,19 @@ interface InspeccionDao {
     @Query("SELECT * FROM inspecciones ORDER BY fechaCreacion DESC")
     fun getAllInspeccionesConCAEX(): Flow<List<InspeccionConCAEX>>
 
+    /**
+     * Obtiene inspecciones con CAEX para un estado específico.
+     *
+     * @param estado Estado de las inspecciones a buscar
+     * @return Flow con la lista de inspecciones con CAEX
+     */
     @Transaction
-    @Query("SELECT * FROM inspecciones WHERE estado = :estado ORDER BY fechaCreacion DESC")
+    @Query("""
+    SELECT * FROM inspecciones 
+    WHERE estado = :estado 
+    ORDER BY fechaCreacion DESC
+""")
     fun getInspeccionesConCAEXByEstado(estado: String): Flow<List<InspeccionConCAEX>>
-
     @Transaction
     @Query("SELECT * FROM inspecciones WHERE tipo = :tipo ORDER BY fechaCreacion DESC")
     fun getInspeccionesConCAEXByTipo(tipo: String): Flow<List<InspeccionConCAEX>>
@@ -110,4 +119,31 @@ interface InspeccionDao {
         ORDER BY i.fechaCreacion DESC
     """)
     fun getInspeccionesConCAEXByModeloEstadoYTipo(modeloCAEX: String, estado: String, tipo: String): Flow<List<InspeccionConCAEX>>
+
+    /**
+     * Obtiene inspecciones que coincidan con cualquiera de los estados especificados.
+     *
+     * @param estados Lista de estados de inspección
+     * @return Flow con la lista de inspecciones
+     */
+    @Query("""
+    SELECT * FROM inspecciones 
+    WHERE estado IN (:estados) 
+    ORDER BY fechaCreacion DESC
+""")
+    fun getInspeccionesByEstados(estados: List<String>): Flow<List<Inspeccion>>
+
+    /**
+     * Obtiene inspecciones con CAEX que coincidan con cualquiera de los estados especificados.
+     *
+     * @param estados Lista de estados de inspección
+     * @return Flow con la lista de inspecciones con CAEX
+     */
+    @Transaction
+    @Query("""
+    SELECT * FROM inspecciones 
+    WHERE estado IN (:estados) 
+    ORDER BY fechaCreacion DESC
+""")
+    fun getInspeccionesConCAEXByEstados(estados: List<String>): Flow<List<InspeccionConCAEX>>
 }

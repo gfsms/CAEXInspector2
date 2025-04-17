@@ -71,6 +71,7 @@ data class Inspeccion(
 
         // Constantes para los estados de inspección
         const val ESTADO_ABIERTA = "ABIERTA"
+        const val ESTADO_PENDIENTE_CIERRE = "PENDIENTE_CIERRE"
         const val ESTADO_CERRADA = "CERRADA"
     }
 }

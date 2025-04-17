@@ -35,8 +35,18 @@ data class InspeccionConCAEX(
      *
      * @return Un string con el estado y la fecha de la inspección
      */
+    /**
+     * Devuelve una descripción del estado de la inspección.
+     *
+     * @return Un string con el estado y la fecha de la inspección
+     */
     fun getEstadoDescriptivo(): String {
-        val estado = if (inspeccion.estado == Inspeccion.ESTADO_ABIERTA) "Abierta" else "Cerrada"
+        val estado = when (inspeccion.estado) {
+            Inspeccion.ESTADO_ABIERTA -> "Abierta"
+            Inspeccion.ESTADO_PENDIENTE_CIERRE -> "Pendiente de cierre"
+            Inspeccion.ESTADO_CERRADA -> "Cerrada"
+            else -> inspeccion.estado
+        }
         return "Estado: $estado"
     }
 }

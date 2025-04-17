@@ -17,4 +17,5 @@
     <color name="status_pending">#FFA000</color>     <!-- Amber 700 -->
     <color name="status_conforme">#4CAF50</color>    <!-- Green 500 -->
     <color name="status_no_conforme">#F44336</color> <!-- Red 500 -->
+    <color name="status_pendiente_cierre">#2196F3</color> <!-- Blue 500 -->
 </resources>

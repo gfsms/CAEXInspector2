@@ -189,7 +189,7 @@ class RespuestaViewModel(private val repository: RespuestaRepository) : ViewMode
      * Actualiza una respuesta No Conforme con los detalles completos.
      *
      * @param respuestaId ID de la respuesta
-     * @param comentarios Comentarios sobre el problema
+     * @param comentarios Comentarios sobre el problema (si es vacío, mantiene los existentes)
      * @param tipoAccion Tipo de acción (INMEDIATO o PROGRAMADO)
      * @param idAvisoOrdenTrabajo ID del aviso o la orden de trabajo asociada
      * @return true si la actualización fue exitosa, false en caso contrario
@@ -201,14 +201,27 @@ class RespuestaViewModel(private val repository: RespuestaRepository) : ViewMode
         idAvisoOrdenTrabajo: String
     ): Boolean {
         return try {
-            repository.actualizarRespuestaNoConforme(
+            // Log para depuración
+            android.util.Log.d("RespuestaViewModel", "Actualizando respuesta: $respuestaId, $tipoAccion, $idAvisoOrdenTrabajo")
+
+            val result = repository.actualizarRespuestaNoConforme(
                 respuestaId,
                 comentarios,
                 tipoAccion,
                 idAvisoOrdenTrabajo
             )
+
+            if (result) {
+                _operationStatus.postValue(OperationStatus.Success("Respuesta actualizada correctamente"))
+            } else {
+                _operationStatus.postValue(OperationStatus.Error("Error al actualizar respuesta"))
+                android.util.Log.e("RespuestaViewModel", "Error al actualizar respuesta: $respuestaId")
+            }
+
+            result
         } catch (e: Exception) {
-            _operationStatus.postValue(OperationStatus.Error(e.message ?: "Error al actualizar respuesta"))
+            android.util.Log.e("RespuestaViewModel", "Excepción al actualizar respuesta: ${e.message}", e)
+            _operationStatus.postValue(OperationStatus.Error("Error al actualizar respuesta: ${e.message}"))
             false
         }
     }

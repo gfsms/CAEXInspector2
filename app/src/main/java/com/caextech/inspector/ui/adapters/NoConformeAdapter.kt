@@ -1,15 +1,19 @@
 package com.caextech.inspector.ui.adapters
 
+import android.content.Context
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.caextech.inspector.data.entities.Respuesta
+import com.caextech.inspector.data.entities.getCategoriaName
 import com.caextech.inspector.data.relations.RespuestaConDetalles
 import com.caextech.inspector.databinding.ItemNoConformeBinding
 
@@ -48,9 +52,10 @@ class NoConformeAdapter(
 
         private var currentRespuestaId: Long = 0
         private var currentTipoAccion: String = Respuesta.ACCION_INMEDIATO
+        private var isUpdating = false  // Bandera para prevenir actualizaciones recursivas
 
         init {
-            // Set up action type radio group listener
+            // Listeners para selección de modelo
             binding.actionTypeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
                 val position = adapterPosition
                 if (position != RecyclerView.NO_POSITION) {
@@ -60,33 +65,45 @@ class NoConformeAdapter(
                         else -> Respuesta.ACCION_INMEDIATO
                     }
 
-                    // Update with current SAP ID value
+                    // No actualizamos inmediatamente, solo cuando se pierde el foco o se completa la edición
+                    checkCompleteness()
+                }
+            }
+
+            // Cambiar para actualizar solo cuando se pierde el foco, no en cada cambio
+            binding.sapIdEditText.setOnFocusChangeListener { _, hasFocus ->
+                if (!hasFocus) {
+                    // Solo actualizamos cuando se pierde el foco
                     updateRespuesta()
                 }
             }
 
-            // Set up SAP ID text change listener
-            binding.sapIdEditText.addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                override fun afterTextChanged(s: Editable?) {
-                    val position = adapterPosition
-                    if (position != RecyclerView.NO_POSITION) {
-                        updateRespuesta()
-                    }
+            // También añadir un listener para la tecla "done" o "enter" del teclado
+            binding.sapIdEditText.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    updateRespuesta()
+                    // Ocultar el teclado
+                    val imm = binding.root.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(binding.sapIdEditText.windowToken, 0)
+                    binding.sapIdEditText.clearFocus()
+                    return@setOnEditorActionListener true
                 }
-            })
+                false
+            }
         }
 
         fun bind(respuestaConDetalles: RespuestaConDetalles) {
             currentRespuestaId = respuestaConDetalles.respuesta.respuestaId
 
             // Set category and question text
-            // Using the category name from elsewhere since the extension function isn't available
-            binding.categoryTitleText.text = respuestaConDetalles.pregunta.categoriaId.toString()
+            binding.categoryTitleText.text = respuestaConDetalles.pregunta.getCategoriaName()
             binding.questionText.text = respuestaConDetalles.pregunta.texto
+
             // Set comments
             binding.commentsText.text = respuestaConDetalles.respuesta.comentarios
+
+            // Prevenir actualizaciones durante el binding
+            isUpdating = true
 
             // Set action type based on current response
             val tipoAccion = respuestaConDetalles.respuesta.tipoAccion
@@ -104,6 +121,9 @@ class NoConformeAdapter(
 
             // Set SAP ID if available
             binding.sapIdEditText.setText(respuestaConDetalles.respuesta.idAvisoOrdenTrabajo ?: "")
+
+            // Fin de la actualización de UI
+            isUpdating = false
 
             // Check if this item is incomplete
             checkCompleteness()
@@ -140,11 +160,17 @@ class NoConformeAdapter(
         }
 
         private fun updateRespuesta() {
+            // Si estamos en medio de una actualización de UI, no hacer nada
+            if (isUpdating) return
+
             // Get current SAP ID value
             val sapId = binding.sapIdEditText.text.toString().trim()
 
-            // Update the response
-            onSapIdUpdated(currentRespuestaId, currentTipoAccion, sapId)
+            // Update the response only if we have a valid SAP ID
+            if (sapId.isNotEmpty()) {
+                // Update the response
+                onSapIdUpdated(currentRespuestaId, currentTipoAccion, sapId)
+            }
 
             // Check if this item is complete
             checkCompleteness()

@@ -26,6 +26,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.util.Log
 
 /**
  * Activity for displaying and finalizing the summary of No Conforme responses.
@@ -163,39 +164,40 @@ class NoConformeSummaryActivity : AppCompatActivity() {
     /**
      * Updates a response with action type and SAP ID.
      */
-    /**
-     * Updates a response with action type and SAP ID.
-     */
     private fun updateRespuestaAction(respuestaId: Long, tipoAccion: String, sapId: String) {
         // Use lifecycleScope to launch a coroutine
         lifecycleScope.launch {
             try {
-                // Check if SAP ID is provided
+                // Validar entrada
                 if (sapId.isBlank()) {
-                    Toast.makeText(
-                        this@NoConformeSummaryActivity,
-                        "Debe ingresar un ID SAP para cada ítem No Conforme",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    // No mostrar Toast aquí, la validación visual ya se muestra en la UI
                     return@launch
                 }
 
-                // Update the response
+                // Log para depuración
+                Log.d("NoConformeSummary", "Actualizando respuesta $respuestaId: tipoAccion=$tipoAccion, sapId=$sapId")
+
+                // Actualizar la respuesta
                 val result = respuestaViewModel.actualizarRespuestaNoConforme(
                     respuestaId,
-                    "", // We keep the existing comments
+                    "", // Mantenemos los comentarios existentes
                     tipoAccion,
                     sapId
                 )
 
+                // Verificar el resultado
                 if (!result) {
+                    Log.e("NoConformeSummary", "Error al actualizar la respuesta $respuestaId")
                     Toast.makeText(
                         this@NoConformeSummaryActivity,
                         "Error al actualizar la respuesta",
                         Toast.LENGTH_SHORT
                     ).show()
+                } else {
+                    Log.d("NoConformeSummary", "Respuesta $respuestaId actualizada correctamente")
                 }
             } catch (e: Exception) {
+                Log.e("NoConformeSummary", "Excepción al actualizar respuesta: ${e.message}", e)
                 Toast.makeText(
                     this@NoConformeSummaryActivity,
                     "Error: ${e.message}",
