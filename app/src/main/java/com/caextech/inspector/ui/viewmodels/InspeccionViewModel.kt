@@ -148,7 +148,7 @@ class InspeccionViewModel(
         nombreSupervisor: String
     ) = viewModelScope.launch {
         try {
-            val inspeccionId = inspeccionRepository.crearInspeccionEntrega(
+            val inspeccionId = inspeccionRepository.crearInspeccionEntregaDesdeRecepcion(
                 inspeccionRecepcionId,
                 nombreInspector,
                 nombreSupervisor
@@ -161,7 +161,55 @@ class InspeccionViewModel(
             _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
         }
     }
+    /**
+     * Verifica si una inspección de recepción ya tiene una inspección de entrega asociada.
+     *
+     * @param recepcionId ID de la inspección de recepción
+     * @return LiveData<Boolean> true si ya tiene una inspección de entrega, false en caso contrario
+     */
+    fun tieneInspeccionEntregaAsociada(recepcionId: Long): LiveData<Boolean> {
+        val result = MutableLiveData<Boolean>()
+        viewModelScope.launch {
+            try {
+                val tieneEntrega = inspeccionRepository.tieneInspeccionEntregaAsociada(recepcionId)
+                result.value = tieneEntrega
+            } catch (e: Exception) {
+                _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
+                result.value = false
+            }
+        }
+        return result
+    }
 
+    /**
+     * Obtiene la inspección de entrega asociada a una inspección de recepción.
+     *
+     * @param recepcionId ID de la inspección de recepción
+     * @return LiveData<Inspeccion?> La inspección de entrega o null si no existe
+     */
+    fun getInspeccionEntregaByRecepcion(recepcionId: Long): LiveData<Inspeccion?> {
+        val result = MutableLiveData<Inspeccion?>()
+        viewModelScope.launch {
+            try {
+                val inspeccionEntrega = inspeccionRepository.getInspeccionEntregaByRecepcion(recepcionId)
+                result.value = inspeccionEntrega
+            } catch (e: Exception) {
+                _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
+                result.value = null
+            }
+        }
+        return result
+    }
+
+    /**
+     * Obtiene las inspecciones de entrega con sus CAEX asociadas a una inspección de recepción.
+     *
+     * @param recepcionId ID de la inspección de recepción
+     * @return LiveData<List<InspeccionConCAEX>> Lista de inspecciones de entrega
+     */
+    fun getInspeccionesEntregaConCAEXByRecepcion(recepcionId: Long): LiveData<List<InspeccionConCAEX>> {
+        return inspeccionRepository.getInspeccionesConCAEXByInspeccionRecepcionId(recepcionId).asLiveData()
+    }
     /**
      * Cierra una inspección.
      *

@@ -339,4 +339,175 @@ class RespuestaRepository(private val respuestaDao: RespuestaDao) {
     suspend fun countRespuestasByInspeccionYEstado(inspeccionId: Long, estado: String): Int {
         return respuestaDao.countRespuestasByInspeccionYEstado(inspeccionId, estado)
     }
+// Add these methods to RespuestaRepository.kt
+
+    /**
+     * Guarda una respuesta "Aceptado" para una pregunta en una inspección de entrega.
+     *
+     * @param inspeccionId ID de la inspección
+     * @param preguntaId ID de la pregunta
+     * @return ID de la respuesta guardada
+     */
+    suspend fun guardarRespuestaAceptada(inspeccionId: Long, preguntaId: Long): Long {
+        // Verificar si ya existe una respuesta para esta pregunta en esta inspección
+        val respuestaExistente = respuestaDao.getRespuestaPorInspeccionYPregunta(inspeccionId, preguntaId)
+
+        if (respuestaExistente != null) {
+            // Actualizar la respuesta existente
+            val respuestaActualizada = respuestaExistente.copy(
+                estado = Respuesta.ESTADO_ACEPTADO,
+                comentarios = "",
+                tipoAccion = null,
+                idAvisoOrdenTrabajo = null,
+                fechaModificacion = System.currentTimeMillis()
+            )
+            respuestaDao.updateRespuesta(respuestaActualizada)
+            return respuestaExistente.respuestaId
+        } else {
+            // Crear una nueva respuesta
+            val nuevaRespuesta = Respuesta(
+                inspeccionId = inspeccionId,
+                preguntaId = preguntaId,
+                estado = Respuesta.ESTADO_ACEPTADO
+            )
+            return respuestaDao.insertRespuesta(nuevaRespuesta)
+        }
+    }
+
+    /**
+     * Guarda una respuesta "Rechazado" simplificada para una pregunta en una inspección de entrega.
+     *
+     * @param inspeccionId ID de la inspección
+     * @param preguntaId ID de la pregunta
+     * @param comentarios Comentarios explicativos sobre el problema
+     * @return ID de la respuesta creada
+     */
+    suspend fun guardarRespuestaRechazadaSimplificada(
+        inspeccionId: Long,
+        preguntaId: Long,
+        comentarios: String
+    ): Long {
+        // Verificar que los comentarios no estén vacíos
+        if (comentarios.isBlank()) {
+            throw IllegalArgumentException("Los comentarios son obligatorios para una respuesta Rechazado")
+        }
+
+        // Verificar si ya existe una respuesta para esta pregunta en esta inspección
+        val respuestaExistente = respuestaDao.getRespuestaPorInspeccionYPregunta(inspeccionId, preguntaId)
+
+        if (respuestaExistente != null) {
+            // Actualizar la respuesta existente
+            val respuestaActualizada = respuestaExistente.copy(
+                estado = Respuesta.ESTADO_RECHAZADO,
+                comentarios = comentarios,  // Guardar los comentarios
+                fechaModificacion = System.currentTimeMillis()
+            )
+            respuestaDao.updateRespuesta(respuestaActualizada)
+            return respuestaExistente.respuestaId
+        } else {
+            // Crear una nueva respuesta
+            val nuevaRespuesta = Respuesta(
+                inspeccionId = inspeccionId,
+                preguntaId = preguntaId,
+                estado = Respuesta.ESTADO_RECHAZADO,
+                comentarios = comentarios  // Guardar los comentarios
+            )
+            return respuestaDao.insertRespuesta(nuevaRespuesta)
+        }
+    }
+
+    /**
+     * Guarda una respuesta "Rechazado" completa para una pregunta en una inspección de entrega.
+     *
+     * @param inspeccionId ID de la inspección
+     * @param preguntaId ID de la pregunta
+     * @param comentarios Comentarios explicativos sobre el problema
+     * @param tipoAccion Tipo de acción (opcional)
+     * @param idAvisoOrdenTrabajo ID del aviso o la orden de trabajo asociada (opcional)
+     * @return ID de la respuesta creada
+     */
+    suspend fun guardarRespuestaRechazada(
+        inspeccionId: Long,
+        preguntaId: Long,
+        comentarios: String,
+        tipoAccion: String? = null,
+        idAvisoOrdenTrabajo: String? = null
+    ): Long {
+        // Validar campos obligatorios
+        if (comentarios.isBlank()) {
+            throw IllegalArgumentException("Los comentarios son obligatorios para una respuesta Rechazado")
+        }
+
+        // Verificar si ya existe una respuesta para esta pregunta en esta inspección
+        val respuestaExistente = respuestaDao.getRespuestaPorInspeccionYPregunta(inspeccionId, preguntaId)
+
+        if (respuestaExistente != null) {
+            // Actualizar la respuesta existente
+            val respuestaActualizada = respuestaExistente.copy(
+                estado = Respuesta.ESTADO_RECHAZADO,
+                comentarios = comentarios,
+                tipoAccion = tipoAccion,
+                idAvisoOrdenTrabajo = idAvisoOrdenTrabajo,
+                fechaModificacion = System.currentTimeMillis()
+            )
+            respuestaDao.updateRespuesta(respuestaActualizada)
+            return respuestaExistente.respuestaId
+        } else {
+            // Crear una nueva respuesta
+            val nuevaRespuesta = Respuesta(
+                inspeccionId = inspeccionId,
+                preguntaId = preguntaId,
+                estado = Respuesta.ESTADO_RECHAZADO,
+                comentarios = comentarios,
+                tipoAccion = tipoAccion,
+                idAvisoOrdenTrabajo = idAvisoOrdenTrabajo
+            )
+            return respuestaDao.insertRespuesta(nuevaRespuesta)
+        }
+    }
+
+    /**
+     * Actualiza una respuesta Rechazada con los detalles completos.
+     *
+     * @param respuestaId ID de la respuesta
+     * @param comentarios Comentarios sobre el problema (si es vacío, mantiene los existentes)
+     * @param tipoAccion Tipo de acción (INMEDIATO o PROGRAMADO), opcional para RECHAZADO
+     * @param idAvisoOrdenTrabajo ID del aviso o la orden de trabajo asociada, opcional para RECHAZADO
+     * @return true si la actualización fue exitosa, false en caso contrario
+     */
+    suspend fun actualizarRespuestaRechazada(
+        respuestaId: Long,
+        comentarios: String,
+        tipoAccion: String? = null,
+        idAvisoOrdenTrabajo: String? = null
+    ): Boolean {
+        try {
+            // Obtener la respuesta actual
+            val respuestaActual = respuestaDao.getRespuestaById(respuestaId)
+                ?: throw IllegalArgumentException("La respuesta con ID $respuestaId no existe")
+
+            // Verificar que sea una respuesta Rechazada
+            if (respuestaActual.estado != Respuesta.ESTADO_RECHAZADO) {
+                throw IllegalArgumentException("Solo se pueden actualizar respuestas Rechazado")
+            }
+
+            // Mantener los comentarios existentes si no se proporcionan nuevos
+            val comentariosFinales = if (comentarios.isBlank()) respuestaActual.comentarios else comentarios
+
+            // Actualizar la respuesta
+            val respuestaActualizada = respuestaActual.copy(
+                comentarios = comentariosFinales,
+                tipoAccion = tipoAccion,
+                idAvisoOrdenTrabajo = idAvisoOrdenTrabajo,
+                fechaModificacion = System.currentTimeMillis()
+            )
+
+            respuestaDao.updateRespuesta(respuestaActualizada)
+            return true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return false
+        }
+    }
+
 }

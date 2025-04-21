@@ -42,7 +42,39 @@ object RespuestaTracker {
         val key = Pair(inspeccionId, preguntaId)
         return respuestasEnMemoria[key]
     }
+// Add these methods to RespuestaTracker.kt
 
+    /**
+     * Registra una respuesta "Aceptado" para una pregunta específica en una inspección
+     */
+    fun registrarRespuestaAceptada(inspeccionId: Long, preguntaId: Long) {
+        val key = Pair(inspeccionId, preguntaId)
+        respuestasEnMemoria[key] = Respuesta.ESTADO_ACEPTADO
+        Logger.d(TAG, "Registrada respuesta ACEPTADO para inspección $inspeccionId, pregunta $preguntaId")
+    }
+
+    /**
+     * Registra una respuesta "Rechazado" para una pregunta específica en una inspección
+     */
+    fun registrarRespuestaRechazada(inspeccionId: Long, preguntaId: Long) {
+        val key = Pair(inspeccionId, preguntaId)
+        respuestasEnMemoria[key] = Respuesta.ESTADO_RECHAZADO
+        Logger.d(TAG, "Registrada respuesta RECHAZADO para inspección $inspeccionId, pregunta $preguntaId")
+    }
+
+    /**
+     * Obtiene si una respuesta estaba marcada como "No Conforme" en una inspección previa
+     * utilizando el ID de la inspección previa.
+     *
+     * @param inspeccionRecepcionId ID de la inspección de recepción
+     * @param preguntaId ID de la pregunta
+     * @return true si la pregunta estaba marcada como "No Conforme", false en caso contrario o si no hay datos
+     */
+    fun preguntaFueNoConforme(inspeccionRecepcionId: Long, preguntaId: Long): Boolean {
+        val key = Pair(inspeccionRecepcionId, preguntaId)
+        val estado = respuestasEnMemoria[key]
+        return estado == Respuesta.ESTADO_NO_CONFORME
+    }
     /**
      * Combina las respuestas de la base de datos con las respuestas en memoria
      * para asegurar que no se pierda ningún estado

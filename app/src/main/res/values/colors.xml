@@ -13,6 +13,7 @@
     <color name="colorPrimaryDark">#303F9F</color>
     <color name="colorAccent">#FF4081</color>
 
+    <color name="highlight_no_conforme_background">#FFFDE7</color> <!-- Light yellow -->
     <!-- Status colors -->
     <color name="status_pending">#FFA000</color>     <!-- Amber 700 -->
     <color name="status_conforme">#4CAF50</color>    <!-- Green 500 -->

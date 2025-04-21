@@ -64,10 +64,12 @@ class InspectionAdapter(private val onItemClick: (InspeccionConCAEX) -> Unit) :
                 Inspeccion.ESTADO_ABIERTA -> {
                     binding.statusText.text = "Estado: Abierta"
                     binding.statusText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.status_pending))
+                    binding.continueButton.text = binding.root.context.getString(R.string.continue_inspection)
                 }
                 Inspeccion.ESTADO_PENDIENTE_CIERRE -> {
                     binding.statusText.text = "Estado: Pendiente de cierre"
                     binding.statusText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.status_pendiente_cierre))
+                    binding.continueButton.text = binding.root.context.getString(R.string.continue_delivery_inspection)
                 }
                 Inspeccion.ESTADO_CERRADA -> {
                     binding.statusText.text = "Estado: Cerrada"

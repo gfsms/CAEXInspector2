@@ -18,26 +18,26 @@ import com.caextech.inspector.data.relations.RespuestaConDetalles
 import com.caextech.inspector.databinding.ItemNoConformeBinding
 
 /**
- * Adapter for displaying No Conforme responses in the summary.
+ * Adapter for displaying Rechazado responses in the delivery summary.
+ * Similar to NoConformeAdapter but specifically for delivery inspections.
  */
-class NoConformeAdapter(
-    private val onSapIdUpdated: (Long, String, String) -> Unit,
-    private val isReadOnly: Boolean = false
-) : ListAdapter<RespuestaConDetalles, NoConformeAdapter.NoConformeViewHolder>(NoConformeDiffCallback()) {
+class RechazadoAdapter(
+    private val onSapIdUpdated: (Long, String, String) -> Unit
+) : ListAdapter<RespuestaConDetalles, RechazadoAdapter.RechazadoViewHolder>(RechazadoDiffCallback()) {
 
     private val incompleteItems = mutableSetOf<Long>()
     private val photoAdapters = mutableMapOf<Long, PhotoThumbnailAdapter>()
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): NoConformeViewHolder {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RechazadoViewHolder {
         val binding = ItemNoConformeBinding.inflate(
             LayoutInflater.from(parent.context),
             parent,
             false
         )
-        return NoConformeViewHolder(binding)
+        return RechazadoViewHolder(binding)
     }
 
-    override fun onBindViewHolder(holder: NoConformeViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: RechazadoViewHolder, position: Int) {
         holder.bind(getItem(position))
     }
 
@@ -48,18 +48,16 @@ class NoConformeAdapter(
         return incompleteItems.toList()
     }
 
-    inner class NoConformeViewHolder(private val binding: ItemNoConformeBinding) :
+    inner class RechazadoViewHolder(private val binding: ItemNoConformeBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
         private var currentRespuestaId: Long = 0
         private var currentTipoAccion: String = Respuesta.ACCION_INMEDIATO
-        private var isUpdating = false  // Bandera para prevenir actualizaciones recursivas
+        private var isUpdating = false  // Flag to prevent recursive updates
 
         init {
-            // Listeners para selección de modelo
+            // Listeners for action type selection
             binding.actionTypeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
-                if (isReadOnly) return@setOnCheckedChangeListener
-
                 val position = adapterPosition
                 if (position != RecyclerView.NO_POSITION) {
                     currentTipoAccion = when (checkedId) {
@@ -68,24 +66,23 @@ class NoConformeAdapter(
                         else -> Respuesta.ACCION_INMEDIATO
                     }
 
-                    // No actualizamos inmediatamente, solo cuando se pierde el foco o se completa la edición
+                    // Only update when focus is lost, not on every change
                     checkCompleteness()
                 }
             }
 
-            // Cambiar para actualizar solo cuando se pierde el foco, no en cada cambio
+            // Update only when focus is lost
             binding.sapIdEditText.setOnFocusChangeListener { _, hasFocus ->
-                if (!hasFocus && !isReadOnly) {
-                    // Solo actualizamos cuando se pierde el foco
+                if (!hasFocus) {
                     updateRespuesta()
                 }
             }
 
-            // También añadir un listener para la tecla "done" o "enter" del teclado
+            // Also add a listener for the "done" key on the keyboard
             binding.sapIdEditText.setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == EditorInfo.IME_ACTION_DONE && !isReadOnly) {
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
                     updateRespuesta()
-                    // Ocultar el teclado
+                    // Hide keyboard
                     val imm = binding.root.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                     imm.hideSoftInputFromWindow(binding.sapIdEditText.windowToken, 0)
                     binding.sapIdEditText.clearFocus()
@@ -105,7 +102,7 @@ class NoConformeAdapter(
             // Set comments
             binding.commentsText.text = respuestaConDetalles.respuesta.comentarios
 
-            // Prevenir actualizaciones durante el binding
+            // Prevent updates during binding
             isUpdating = true
 
             // Set action type based on current response
@@ -125,21 +122,11 @@ class NoConformeAdapter(
             // Set SAP ID if available
             binding.sapIdEditText.setText(respuestaConDetalles.respuesta.idAvisoOrdenTrabajo ?: "")
 
-            // Set read-only mode if needed
-            if (isReadOnly) {
-                binding.radioAviso.isEnabled = false
-                binding.radioOT.isEnabled = false
-                binding.sapIdEditText.isEnabled = false
-                binding.validationText.visibility = View.GONE
-            }
-
-            // Fin de la actualización de UI
+            // End of UI update
             isUpdating = false
 
-            // Check if this item is incomplete (only if editable)
-            if (!isReadOnly) {
-                checkCompleteness()
-            }
+            // Check if this item is incomplete
+            checkCompleteness()
 
             // Setup photos if any
             if (respuestaConDetalles.tieneFotos()) {
@@ -156,7 +143,7 @@ class NoConformeAdapter(
             // Create adapter if needed
             if (!photoAdapters.containsKey(respuestaId)) {
                 photoAdapters[respuestaId] = PhotoThumbnailAdapter(
-                    onDeleteClicked = { /* Read-only, no delete action */ }
+                    onDeleteClicked = { /* Read-only here, no delete action */ }
                 )
             }
 
@@ -173,8 +160,8 @@ class NoConformeAdapter(
         }
 
         private fun updateRespuesta() {
-            // Si estamos en medio de una actualización de UI, no hacer nada
-            if (isUpdating || isReadOnly) return
+            // If we're in the middle of a UI update, do nothing
+            if (isUpdating) return
 
             // Get current SAP ID value
             val sapId = binding.sapIdEditText.text.toString().trim()
@@ -190,12 +177,6 @@ class NoConformeAdapter(
         }
 
         private fun checkCompleteness() {
-            if (isReadOnly) {
-                incompleteItems.remove(currentRespuestaId)
-                binding.validationText.visibility = View.GONE
-                return
-            }
-
             val sapId = binding.sapIdEditText.text.toString().trim()
 
             if (sapId.isEmpty()) {
@@ -211,7 +192,7 @@ class NoConformeAdapter(
         }
     }
 
-    class NoConformeDiffCallback : DiffUtil.ItemCallback<RespuestaConDetalles>() {
+    class RechazadoDiffCallback : DiffUtil.ItemCallback<RespuestaConDetalles>() {
         override fun areItemsTheSame(oldItem: RespuestaConDetalles, newItem: RespuestaConDetalles): Boolean {
             return oldItem.respuesta.respuestaId == newItem.respuesta.respuestaId
         }

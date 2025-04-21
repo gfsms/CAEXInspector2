@@ -7,19 +7,23 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.caextech.inspector.CAEXInspectorApp
 import com.caextech.inspector.R
 import com.caextech.inspector.data.entities.Inspeccion
+import com.caextech.inspector.data.entities.Respuesta
 import com.caextech.inspector.databinding.ActivityInspectionQuestionnaireBinding
 import com.caextech.inspector.ui.adapters.CategoryPagerAdapter
+import com.caextech.inspector.ui.adapters.DeliveryCategoryPagerAdapter
 import com.caextech.inspector.ui.viewmodels.CategoriaPreguntaViewModel
 import com.caextech.inspector.ui.viewmodels.InspeccionViewModel
 import com.caextech.inspector.ui.viewmodels.RespuestaViewModel
 import com.google.android.material.tabs.TabLayoutMediator
+import kotlinx.coroutines.launch
 
 /**
  * Activity for displaying and answering the inspection questionnaire.
- * Organizes questions by categories in a tabbed interface.
+ * Handles both reception and delivery inspections.
  */
 class InspectionQuestionnaireActivity : AppCompatActivity() {
 
@@ -31,11 +35,15 @@ class InspectionQuestionnaireActivity : AppCompatActivity() {
     private lateinit var respuestaViewModel: RespuestaViewModel
 
     // Adapter for category tabs and viewpager
-    private lateinit var categoryPagerAdapter: CategoryPagerAdapter
+    private var categoryPagerAdapter: CategoryPagerAdapter? = null
+    private var deliveryCategoryPagerAdapter: DeliveryCategoryPagerAdapter? = null
 
     // Inspection data
     private var inspeccionId: Long = 0
+    private var inspeccionRecepcionId: Long? = null
     private var modeloCAEX: String = ""
+    private var tipoInspeccion: String = Inspeccion.TIPO_RECEPCION
+    private var preguntasNoConformes = mutableSetOf<Long>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -109,14 +117,46 @@ class InspectionQuestionnaireActivity : AppCompatActivity() {
                 return@observe
             }
 
+            // Get inspection type
+            tipoInspeccion = inspeccionConCAEX.inspeccion.tipo
+
+            // Get reception inspection ID if this is a delivery inspection
+            inspeccionRecepcionId = inspeccionConCAEX.inspeccion.inspeccionRecepcionId
+
+            // If this is a delivery inspection, load no-conforme questions from reception
+            if (tipoInspeccion == Inspeccion.TIPO_ENTREGA && inspeccionRecepcionId != null) {
+                loadNoConformePreguntas(inspeccionRecepcionId!!)
+            }
+
             // Set title with CAEX info
-            title = inspeccionConCAEX.getTituloDescriptivo()
+            val titlePrefix = if (tipoInspeccion == Inspeccion.TIPO_RECEPCION)
+                getString(R.string.inspection_questionnaire)
+            else
+                getString(R.string.delivery_inspection)
+
+            title = "$titlePrefix - ${inspeccionConCAEX.caex.getNombreCompleto()}"
 
             // Get CAEX model for filtering categories and questions
             modeloCAEX = inspeccionConCAEX.caex.modelo
 
             // Load categories for this CAEX model
             loadCategoriesForModel(modeloCAEX)
+        }
+    }
+
+    /**
+     * Loads the list of questions that were marked as "No Conforme" in the reception inspection.
+     */
+    private fun loadNoConformePreguntas(recepcionId: Long) {
+        respuestaViewModel.getRespuestasConDetallesByInspeccionYEstado(
+            recepcionId,
+            Respuesta.ESTADO_NO_CONFORME
+        ).observe(this) { noConformes ->
+            preguntasNoConformes.clear()
+            preguntasNoConformes.addAll(noConformes.map { it.pregunta.preguntaId })
+
+            // Update adapter if already created
+            deliveryCategoryPagerAdapter?.updateNoConformePreguntas(preguntasNoConformes)
         }
     }
 
@@ -133,16 +173,31 @@ class InspectionQuestionnaireActivity : AppCompatActivity() {
             // Filter categories that have at least one question for this model
             val validCategorias = categorias.filter { it.tienePreguntas(modelo) }
 
-            // Initialize the adapter with the inspection ID and categories
-            categoryPagerAdapter = CategoryPagerAdapter(
-                this,
-                inspeccionId,
-                modelo,
-                validCategorias
-            )
+            if (tipoInspeccion == Inspeccion.TIPO_RECEPCION) {
+                // Initialize the adapter with the inspection ID and categories for reception
+                categoryPagerAdapter = CategoryPagerAdapter(
+                    this,
+                    inspeccionId,
+                    modelo,
+                    validCategorias
+                )
 
-            // Set up ViewPager
-            binding.categoryViewPager.adapter = categoryPagerAdapter
+                // Set up ViewPager
+                binding.categoryViewPager.adapter = categoryPagerAdapter
+            } else {
+                // Initialize the adapter with the inspection ID and categories for delivery
+                deliveryCategoryPagerAdapter = DeliveryCategoryPagerAdapter(
+                    this,
+                    inspeccionId,
+                    inspeccionRecepcionId ?: 0,
+                    modelo,
+                    validCategorias,
+                    preguntasNoConformes
+                )
+
+                // Set up ViewPager
+                binding.categoryViewPager.adapter = deliveryCategoryPagerAdapter
+            }
 
             // Connect TabLayout with ViewPager
             TabLayoutMediator(binding.categoryTabLayout, binding.categoryViewPager) { tab, position ->
@@ -156,8 +211,9 @@ class InspectionQuestionnaireActivity : AppCompatActivity() {
      * If all categories are completed, shows a dialog to proceed to the summary.
      */
     private fun navigateToNextCategory() {
+        val adapter = binding.categoryViewPager.adapter ?: return
         val currentPosition = binding.categoryViewPager.currentItem
-        val totalCount = categoryPagerAdapter.itemCount
+        val totalCount = adapter.itemCount
 
         if (currentPosition < totalCount - 1) {
             // Move to the next tab
@@ -189,11 +245,15 @@ class InspectionQuestionnaireActivity : AppCompatActivity() {
     }
 
     /**
-     * Navigates to the NoConformeSummaryActivity to review No Conforme responses.
+     * Navigates to the NoConformeSummaryActivity to review Non-Conforming or Rejected responses.
      */
     private fun navigateToSummary() {
         val intent = Intent(this, NoConformeSummaryActivity::class.java).apply {
             putExtra(NoConformeSummaryActivity.EXTRA_INSPECCION_ID, inspeccionId)
+            putExtra(NoConformeSummaryActivity.EXTRA_INSPECCION_TIPO, tipoInspeccion)
+            if (inspeccionRecepcionId != null) {
+                putExtra(NoConformeSummaryActivity.EXTRA_INSPECCION_RECEPCION_ID, inspeccionRecepcionId)
+            }
         }
         startActivity(intent)
     }

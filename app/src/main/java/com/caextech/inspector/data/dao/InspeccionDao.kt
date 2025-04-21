@@ -59,7 +59,35 @@ interface InspeccionDao {
         ORDER BY fechaCreacion DESC
     """)
     fun getInspeccionesByTipoYEstado(tipo: String, estado: String): Flow<List<Inspeccion>>
+// Add these methods to InspeccionDao.kt
 
+    /**
+     * Cuenta el número de inspecciones que tienen como inspección de recepción a la inspección especificada.
+     *
+     * @param inspeccionRecepcionId ID de la inspección de recepción
+     * @return El número de inspecciones de entrega asociadas
+     */
+    @Query("SELECT COUNT(*) FROM inspecciones WHERE inspeccionRecepcionId = :inspeccionRecepcionId")
+    suspend fun countInspeccionesByInspeccionRecepcionId(inspeccionRecepcionId: Long): Int
+
+    /**
+     * Obtiene la inspección de entrega asociada a una inspección de recepción.
+     *
+     * @param inspeccionRecepcionId ID de la inspección de recepción
+     * @return La inspección de entrega o null si no existe
+     */
+    @Query("SELECT * FROM inspecciones WHERE inspeccionRecepcionId = :inspeccionRecepcionId LIMIT 1")
+    suspend fun getInspeccionByInspeccionRecepcionId(inspeccionRecepcionId: Long): Inspeccion?
+
+    /**
+     * Obtiene una lista de inspecciones con sus CAEX por inspeccionRecepcionId.
+     *
+     * @param inspeccionRecepcionId ID de la inspección de recepción
+     * @return Flow con la lista de inspecciones con CAEX
+     */
+    @Transaction
+    @Query("SELECT * FROM inspecciones WHERE inspeccionRecepcionId = :inspeccionRecepcionId")
+    fun getInspeccionesConCAEXByInspeccionRecepcionId(inspeccionRecepcionId: Long): Flow<List<InspeccionConCAEX>>
     @Transaction
     @Query("SELECT * FROM inspecciones WHERE inspeccionId = :inspeccionId")
     suspend fun getInspeccionConCAEXById(inspeccionId: Long): InspeccionConCAEX?

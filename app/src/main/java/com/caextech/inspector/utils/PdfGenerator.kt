@@ -93,6 +93,102 @@ object PdfGenerator {
     }
 
     /**
+     * Generates a PDF document with both reception and delivery inspection data.
+     * This version combines No Conforme items from reception and Rechazado items from delivery.
+     *
+     * @param context The context for accessing resources
+     * @param entregaId The ID of the delivery inspection
+     * @param recepcionId The ID of the reception inspection
+     * @param noConformes List of No Conforme responses from reception
+     * @param rechazados List of Rechazado responses from delivery
+     * @param outputFile The output PDF file
+     */
+    fun generateDeliveryPdf(
+        context: Context,
+        entregaId: Long,
+        recepcionId: Long,
+        noConformes: List<RespuestaConDetalles>,
+        rechazados: List<RespuestaConDetalles>,
+        outputFile: File
+    ) {
+        // Create PDF document
+        val document = Document()
+
+        try {
+            // Create PDF writer
+            PdfWriter.getInstance(document, FileOutputStream(outputFile))
+
+            // Open document
+            document.open()
+
+            // Add title
+            val title = Paragraph("Reporte de Inspección de Entrega", TITLE_FONT)
+            title.alignment = Element.ALIGN_CENTER
+            title.spacingAfter = 20f
+            document.add(title)
+
+            // Add inspection info
+            addDeliveryInspectionInfo(document, entregaId, recepcionId)
+
+            // Add summary
+            val summary = Paragraph("Resumen: ${noConformes.size} ítems No Conformes en Recepción, ${rechazados.size} ítems Rechazados en Entrega", HEADER_FONT)
+            summary.spacingBefore = 20f
+            summary.spacingAfter = 10f
+            document.add(summary)
+
+            // Add Reception section header
+            val recepcionHeader = Paragraph("Ítems No Conformes en Inspección de Recepción", HEADER_FONT)
+            recepcionHeader.spacingBefore = 20f
+            recepcionHeader.spacingAfter = 10f
+            document.add(recepcionHeader)
+
+            // Add No Conforme items from reception
+            if (noConformes.isNotEmpty()) {
+                addNoConformeItems(context, document, noConformes)
+            } else {
+                document.add(Paragraph("No hay ítems No Conformes en la inspección de recepción.", NORMAL_FONT))
+            }
+
+            // Add Delivery section header
+            val entregaHeader = Paragraph("Ítems Rechazados en Inspección de Entrega", HEADER_FONT)
+            entregaHeader.spacingBefore = 20f
+            entregaHeader.spacingAfter = 10f
+            document.add(entregaHeader)
+
+            // Add Rechazado items from delivery
+            if (rechazados.isNotEmpty()) {
+                addNoConformeItems(context, document, rechazados)
+            } else {
+                document.add(Paragraph("No hay ítems Rechazados en la inspección de entrega.", NORMAL_FONT))
+            }
+
+            // Add footer
+            val footer = Paragraph("Documento generado el ${getCurrentDateTime()}", SMALL_FONT)
+            footer.alignment = Element.ALIGN_CENTER
+            footer.spacingBefore = 20f
+            document.add(footer)
+
+        } finally {
+            // Close document
+            document.close()
+        }
+    }
+
+    /**
+     * Adds delivery inspection information to the PDF.
+     */
+    private fun addDeliveryInspectionInfo(document: Document, entregaId: Long, recepcionId: Long) {
+        val infoTable = PdfPTable(2)
+        infoTable.widthPercentage = 100f
+
+        // Add info rows
+        addInfoRow(infoTable, "ID Inspección Recepción:", recepcionId.toString())
+        addInfoRow(infoTable, "ID Inspección Entrega:", entregaId.toString())
+        addInfoRow(infoTable, "Fecha:", getCurrentDateTime())
+
+        document.add(infoTable)
+    }
+    /**
      * Adds inspection information to the PDF.
      */
     private fun addInspectionInfo(document: Document, inspeccionId: Long) {

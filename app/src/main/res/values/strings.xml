@@ -56,6 +56,20 @@
     <string name="generate_pdf">Generar PDF</string>
     <string name="complete_inspection">Completar Inspección</string>
 
+    <!-- Add these to strings.xml -->
+    <string name="aceptado">Aceptado</string>
+    <string name="rechazado">Rechazado</string>
+    <string name="comments_hint_delivery">Comentarios (obligatorio para Rechazado)</string>
+    <string name="delivery_inspection">Inspección de Entrega</string>
+    <string name="create_delivery_inspection">Crear Inspección de Entrega</string>
+    <string name="reception_inspection_summary">Resumen Inspección de Recepción</string>
+    <string name="delivery_inspection_summary">Resumen Inspección de Entrega</string>
+    <string name="no_conforme_items_reception">Ítems No Conformes en Recepción</string>
+    <string name="rejected_items_delivery">Ítems Rechazados en Entrega</string>
+    <string name="highlight_no_conforme_background">#FFFDE7</string> <!-- Light yellow -->
+    <string name="pending_closure_inspection">Inspección en Espera de Cierre</string>
+    <string name="continue_delivery_inspection">Continuar a Entrega</string>
+
     <!-- Menu options -->
     <string name="action_export_history">Exportar Historial</string>
 </resources>

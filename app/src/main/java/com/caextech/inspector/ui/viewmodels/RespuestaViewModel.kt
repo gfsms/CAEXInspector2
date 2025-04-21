@@ -226,6 +226,155 @@ class RespuestaViewModel(private val repository: RespuestaRepository) : ViewMode
         }
     }
 
+
+    /**
+     * Guarda una respuesta "Aceptado" para una pregunta en una inspección de entrega.
+     *
+     * @param inspeccionId ID de la inspección
+     * @param preguntaId ID de la pregunta
+     * @return ID de la respuesta guardada
+     */
+    suspend fun guardarRespuestaAceptada(inspeccionId: Long, preguntaId: Long): Long {
+        return try {
+            repository.guardarRespuestaAceptada(inspeccionId, preguntaId)
+        } catch (e: Exception) {
+            _operationStatus.postValue(OperationStatus.Error(e.message ?: "Error al guardar respuesta aceptada"))
+            0
+        }
+    }
+
+    /**
+     * Guarda una respuesta "Rechazado" simplificada para una pregunta en una inspección de entrega.
+     *
+     * @param inspeccionId ID de la inspección
+     * @param preguntaId ID de la pregunta
+     * @param comentarios Comentarios sobre el problema
+     * @return ID de la respuesta guardada
+     */
+    suspend fun guardarRespuestaRechazadaSimplificada(
+        inspeccionId: Long,
+        preguntaId: Long,
+        comentarios: String
+    ): Long {
+        return try {
+            if (comentarios.isBlank()) {
+                _operationStatus.postValue(OperationStatus.Error("Los comentarios son obligatorios para una respuesta Rechazado"))
+                return 0
+            }
+
+            repository.guardarRespuestaRechazadaSimplificada(inspeccionId, preguntaId, comentarios)
+        } catch (e: Exception) {
+            _operationStatus.postValue(OperationStatus.Error(e.message ?: "Error al guardar respuesta rechazada"))
+            0
+        }
+    }
+
+    /**
+     * Guarda una respuesta "Rechazado" completa para una pregunta en una inspección de entrega.
+     *
+     * @param inspeccionId ID de la inspección
+     * @param preguntaId ID de la pregunta
+     * @param comentarios Comentarios sobre el problema
+     * @param tipoAccion Tipo de acción (opcional)
+     * @param idAvisoOrdenTrabajo ID del aviso o la orden de trabajo asociada (opcional)
+     * @return ID de la respuesta guardada
+     */
+    suspend fun guardarRespuestaRechazada(
+        inspeccionId: Long,
+        preguntaId: Long,
+        comentarios: String,
+        tipoAccion: String? = null,
+        idAvisoOrdenTrabajo: String? = null
+    ): Long {
+        return try {
+            if (comentarios.isBlank()) {
+                _operationStatus.postValue(OperationStatus.Error("Los comentarios son obligatorios para una respuesta Rechazado"))
+                return 0
+            }
+
+            repository.guardarRespuestaRechazada(
+                inspeccionId,
+                preguntaId,
+                comentarios,
+                tipoAccion,
+                idAvisoOrdenTrabajo
+            )
+        } catch (e: Exception) {
+            _operationStatus.postValue(OperationStatus.Error(e.message ?: "Error al guardar respuesta rechazada"))
+            0
+        }
+    }
+
+    /**
+     * Actualiza una respuesta Rechazada con los detalles completos.
+     *
+     * @param respuestaId ID de la respuesta
+     * @param comentarios Comentarios sobre el problema (si es vacío, mantiene los existentes)
+     * @param tipoAccion Tipo de acción (opcional)
+     * @param idAvisoOrdenTrabajo ID del aviso o la orden de trabajo asociada (opcional)
+     * @return true si la actualización fue exitosa, false en caso contrario
+     */
+    suspend fun actualizarRespuestaRechazada(
+        respuestaId: Long,
+        comentarios: String,
+        tipoAccion: String? = null,
+        idAvisoOrdenTrabajo: String? = null
+    ): Boolean {
+        return try {
+            val result = repository.actualizarRespuestaRechazada(
+                respuestaId,
+                comentarios,
+                tipoAccion,
+                idAvisoOrdenTrabajo
+            )
+
+            if (result) {
+                _operationStatus.postValue(OperationStatus.Success("Respuesta actualizada correctamente"))
+            } else {
+                _operationStatus.postValue(OperationStatus.Error("Error al actualizar respuesta"))
+                android.util.Log.e("RespuestaViewModel", "Error al actualizar respuesta: $respuestaId")
+            }
+
+            result
+        } catch (e: Exception) {
+            android.util.Log.e("RespuestaViewModel", "Excepción al actualizar respuesta: ${e.message}", e)
+            _operationStatus.postValue(OperationStatus.Error("Error al actualizar respuesta: ${e.message}"))
+            false
+        }
+    }
+
+    /**
+     * Obtiene las respuestas "No Conformes" de una inspección de recepción asociada a una inspección de entrega.
+     *
+     * @param inspeccionEntregaId ID de la inspección de entrega
+     * @return LiveData con la lista de respuestas no conformes de la inspección de recepción
+     */
+    fun getRespuestasNoConformesByInspeccionRecepcion(inspeccionEntregaId: Long): LiveData<List<RespuestaConDetalles>> {
+        val result = MutableLiveData<List<RespuestaConDetalles>>()
+        viewModelScope.launch {
+            try {
+                // Primero obtener la inspección de entrega para acceder a su inspeccionRecepcionId
+                val inspeccion = getApplication<CAEXInspectorApp>().database.inspeccionDao()
+                    .getInspeccionById(inspeccionEntregaId)
+
+                if (inspeccion != null && inspeccion.inspeccionRecepcionId != null) {
+                    // Ahora obtener las respuestas no conformes de la inspección de recepción
+                    val respuestasNoConformes = repository.getRespuestasConDetallesByInspeccionYEstado(
+                        inspeccion.inspeccionRecepcionId,
+                        Respuesta.ESTADO_NO_CONFORME
+                    ).firstOrNull() ?: emptyList()
+
+                    result.value = respuestasNoConformes
+                } else {
+                    result.value = emptyList()
+                }
+            } catch (e: Exception) {
+                _operationStatus.value = OperationStatus.Error(e.message ?: "Error al obtener respuestas no conformes")
+                result.value = emptyList()
+            }
+        }
+        return result
+    }
     /**
      * Carga una respuesta con todos sus detalles por su ID.
      *

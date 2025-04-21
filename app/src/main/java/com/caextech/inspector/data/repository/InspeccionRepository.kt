@@ -68,7 +68,47 @@ class InspeccionRepository(
 
         return inspeccionDao.insertInspeccion(inspeccion)
     }
+    /**
+     * Crea una inspección de entrega basada en una inspección de recepción existente.
+     *
+     * @param inspeccionRecepcionId ID de la inspección de recepción
+     * @param nombreInspector Nombre del inspector que realiza la entrega
+     * @param nombreSupervisor Nombre del supervisor de taller
+     * @return ID de la inspección de entrega creada
+     * @throws IllegalArgumentException si la inspección de recepción no existe o no está en estado PENDIENTE_CIERRE
+     */
+    suspend fun crearInspeccionEntregaDesdeRecepcion(
+        inspeccionRecepcionId: Long,
+        nombreInspector: String,
+        nombreSupervisor: String
+    ): Long {
+        // Verificar que la inspección de recepción existe
+        val inspeccionRecepcion = inspeccionDao.getInspeccionById(inspeccionRecepcionId)
+            ?: throw IllegalArgumentException("La inspección de recepción con ID $inspeccionRecepcionId no existe")
 
+        // Verificar que la inspección de recepción es de tipo RECEPCION
+        if (inspeccionRecepcion.tipo != Inspeccion.TIPO_RECEPCION) {
+            throw IllegalArgumentException("La inspección con ID $inspeccionRecepcionId no es de tipo RECEPCION")
+        }
+
+        // Verificar que la inspección de recepción está en estado PENDIENTE_CIERRE
+        if (inspeccionRecepcion.estado != Inspeccion.ESTADO_PENDIENTE_CIERRE) {
+            throw IllegalArgumentException("La inspección de recepción debe estar en estado PENDIENTE_CIERRE")
+        }
+
+        // Crear la inspección de entrega
+        val inspeccion = Inspeccion(
+            caexId = inspeccionRecepcion.caexId,
+            tipo = Inspeccion.TIPO_ENTREGA,
+            estado = Inspeccion.ESTADO_ABIERTA,
+            nombreInspector = nombreInspector,
+            nombreSupervisor = nombreSupervisor,
+            inspeccionRecepcionId = inspeccionRecepcionId,
+            comentariosGenerales = ""
+        )
+
+        return inspeccionDao.insertInspeccion(inspeccion)
+    }
     // Crear una nueva inspección de entrega basada en una inspección de recepción
     suspend fun crearInspeccionEntrega(
         inspeccionRecepcionId: Long,
@@ -105,10 +145,10 @@ class InspeccionRepository(
     fun getInspeccionesConCAEXByEstados(estados: List<String>): Flow<List<InspeccionConCAEX>> {
         return inspeccionDao.getInspeccionesConCAEXByEstados(estados)
     }
+
     /**
      * Cierra una inspección.
-     * Para inspecciones de tipo RECEPCION, cambia el estado a PENDIENTE_CIERRE.
-     * Para inspecciones de tipo ENTREGA, cambia el estado a CERRADA.
+     * Para inspecciones de tipo ENTREGA, también cierra la inspección de recepción asociada.
      *
      * @param inspeccionId ID de la inspección
      * @param comentariosGenerales Comentarios generales sobre la inspección
@@ -154,7 +194,41 @@ class InspeccionRepository(
         )
 
         inspeccionDao.updateInspeccion(inspeccionActualizada)
+
+        // Si es una inspección de entrega, cerrar también la inspección de recepción asociada
+        if (inspeccion.tipo == Inspeccion.TIPO_ENTREGA && inspeccion.inspeccionRecepcionId != null) {
+            val inspeccionRecepcion = inspeccionDao.getInspeccionById(inspeccion.inspeccionRecepcionId)
+            if (inspeccionRecepcion != null && inspeccionRecepcion.estado == Inspeccion.ESTADO_PENDIENTE_CIERRE) {
+                val inspeccionRecepcionActualizada = inspeccionRecepcion.copy(
+                    estado = Inspeccion.ESTADO_CERRADA,
+                    fechaFinalizacion = System.currentTimeMillis()
+                )
+                inspeccionDao.updateInspeccion(inspeccionRecepcionActualizada)
+            }
+        }
+
         return true
+    }
+
+    /**
+     * Verifica si una inspección de recepción tiene una inspección de entrega asociada
+     *
+     * @param recepcionId ID de la inspección de recepción
+     * @return true si tiene una inspección de entrega, false en caso contrario
+     */
+    suspend fun tieneInspeccionEntregaAsociada(recepcionId: Long): Boolean {
+        val count = inspeccionDao.countInspeccionesByInspeccionRecepcionId(recepcionId)
+        return count > 0
+    }
+
+    /**
+     * Obtiene la inspección de entrega asociada a una inspección de recepción
+     *
+     * @param recepcionId ID de la inspección de recepción
+     * @return La inspección de entrega o null si no existe
+     */
+    suspend fun getInspeccionEntregaByRecepcion(recepcionId: Long): Inspeccion? {
+        return inspeccionDao.getInspeccionByInspeccionRecepcionId(recepcionId)
     }
     // Obtener inspecciones por CAEX como Flow
     fun getInspeccionesByCAEX(caexId: Long): Flow<List<InspeccionConCAEX>> {

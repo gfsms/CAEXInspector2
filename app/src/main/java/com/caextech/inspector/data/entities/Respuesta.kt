@@ -9,8 +9,10 @@ import androidx.room.PrimaryKey
  * Entidad que representa una respuesta a una pregunta en una inspección.
  *
  * Cada respuesta está vinculada a una inspección y a una pregunta específicas.
- * El estado puede ser "Conforme" o "No Conforme". Para las respuestas "No Conforme",
- * se registran comentarios, tipo de acción y el ID del aviso u orden de trabajo.
+ * El estado puede ser "Conforme" o "No Conforme" para inspecciones de recepción,
+ * o "Aceptado" o "Rechazado" para inspecciones de entrega.
+ * Para las respuestas "No Conforme" o "Rechazado", se registran comentarios,
+ * tipo de acción y el ID del aviso u orden de trabajo.
  */
 @Entity(
     tableName = "respuestas",
@@ -44,13 +46,13 @@ data class Respuesta(
     // ID de la pregunta a la que responde
     val preguntaId: Long,
 
-    // Estado de la respuesta: CONFORME o NO_CONFORME
+    // Estado de la respuesta: CONFORME, NO_CONFORME, ACEPTADO, RECHAZADO
     val estado: String,
 
-    // Comentarios (obligatorio para respuestas NO_CONFORME)
+    // Comentarios (obligatorio para respuestas NO_CONFORME y RECHAZADO)
     val comentarios: String = "",
 
-    // Tipo de acción para NO_CONFORME: INMEDIATO o PROGRAMADO
+    // Tipo de acción para NO_CONFORME o RECHAZADO: INMEDIATO o PROGRAMADO
     val tipoAccion: String? = null,
 
     // ID del aviso (para acciones INMEDIATO) u orden de trabajo (para PROGRAMADO)
@@ -63,9 +65,13 @@ data class Respuesta(
     val fechaModificacion: Long = System.currentTimeMillis()
 ) {
     companion object {
-        // Constantes para los estados de respuesta
+        // Constantes para los estados de respuesta de recepción
         const val ESTADO_CONFORME = "CONFORME"
         const val ESTADO_NO_CONFORME = "NO_CONFORME"
+
+        // Constantes para los estados de respuesta de entrega
+        const val ESTADO_ACEPTADO = "ACEPTADO"
+        const val ESTADO_RECHAZADO = "RECHAZADO"
 
         // Constantes para los tipos de acción
         const val ACCION_INMEDIATO = "INMEDIATO"
@@ -78,22 +84,28 @@ data class Respuesta(
      * @return true si la respuesta es válida, false en caso contrario
      */
     fun esValida(): Boolean {
-        // Si es CONFORME, no necesitamos verificar nada más
-        if (estado == ESTADO_CONFORME) {
+        // Si es CONFORME o ACEPTADO, no necesitamos verificar nada más
+        if (estado == ESTADO_CONFORME || estado == ESTADO_ACEPTADO) {
             return true
         }
 
-        // Si es NO_CONFORME, debe tener comentarios y tipo de acción
-        if (estado == ESTADO_NO_CONFORME) {
+        // Si es NO_CONFORME o RECHAZADO, debe tener comentarios
+        if (estado == ESTADO_NO_CONFORME || estado == ESTADO_RECHAZADO) {
             if (comentarios.isBlank()) {
                 return false
             }
 
+            // Para respuestas en inspección de cierre, no requieren tipo de acción ni ID SAP
+            if (estado == ESTADO_RECHAZADO) {
+                return true
+            }
+
+            // Para NO_CONFORME, debe tener un tipo de acción y un ID de aviso/orden válido
             if (tipoAccion.isNullOrBlank()) {
                 return false
             }
 
-            // Debe tener un ID de aviso/orden válido
+            // Debe tener un ID de aviso/orden
             if (idAvisoOrdenTrabajo.isNullOrBlank()) {
                 return false
             }

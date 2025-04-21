@@ -15,9 +15,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.caextech.inspector.CAEXInspectorApp
 import com.caextech.inspector.MainActivity
 import com.caextech.inspector.R
+import com.caextech.inspector.data.entities.Inspeccion
 import com.caextech.inspector.data.entities.Respuesta
 import com.caextech.inspector.databinding.ActivityNoConformeSummaryBinding
 import com.caextech.inspector.ui.adapters.NoConformeAdapter
+import com.caextech.inspector.ui.adapters.RechazadoAdapter
 import com.caextech.inspector.ui.viewmodels.InspeccionViewModel
 import com.caextech.inspector.ui.viewmodels.RespuestaViewModel
 import com.caextech.inspector.utils.PdfGenerator
@@ -29,8 +31,8 @@ import java.util.Locale
 import android.util.Log
 
 /**
- * Activity for displaying and finalizing the summary of No Conforme responses.
- * Allows adding SAP IDs, selecting action types, and generating a PDF report.
+ * Activity for displaying and finalizing the summary of responses.
+ * Handles both reception (No Conforme) and delivery (Rechazado) inspections.
  */
 class NoConformeSummaryActivity : AppCompatActivity() {
 
@@ -40,11 +42,14 @@ class NoConformeSummaryActivity : AppCompatActivity() {
     private lateinit var inspeccionViewModel: InspeccionViewModel
     private lateinit var respuestaViewModel: RespuestaViewModel
 
-    // Adapter
+    // Adapters
     private lateinit var noConformeAdapter: NoConformeAdapter
+    private lateinit var rechazadoAdapter: RechazadoAdapter
 
     // Inspection data
     private var inspeccionId: Long = 0
+    private var inspeccionRecepcionId: Long? = null
+    private var tipoInspeccion: String = Inspeccion.TIPO_RECEPCION
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,8 +62,11 @@ class NoConformeSummaryActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        // Get inspection ID from intent
+        // Get inspection data from intent
         inspeccionId = intent.getLongExtra(EXTRA_INSPECCION_ID, 0)
+        tipoInspeccion = intent.getStringExtra(EXTRA_INSPECCION_TIPO) ?: Inspeccion.TIPO_RECEPCION
+        inspeccionRecepcionId = intent.getLongExtra(EXTRA_INSPECCION_RECEPCION_ID, 0).takeIf { it > 0 }
+
         if (inspeccionId == 0L) {
             Toast.makeText(this, "Error: No se especificó una inspección", Toast.LENGTH_SHORT).show()
             finish()
@@ -68,8 +76,8 @@ class NoConformeSummaryActivity : AppCompatActivity() {
         // Initialize ViewModels
         initViewModels()
 
-        // Set up RecyclerView
-        setupRecyclerView()
+        // Set up RecyclerViews
+        setupRecyclerViews()
 
         // Load inspection data
         loadInspectionData()
@@ -101,24 +109,43 @@ class NoConformeSummaryActivity : AppCompatActivity() {
     }
 
     /**
-     * Sets up the RecyclerView with the NoConformeAdapter.
+     * Sets up the RecyclerViews for NoConforme and Rechazado items.
      */
-    private fun setupRecyclerView() {
+    private fun setupRecyclerViews() {
+        // Setup adapter for "No Conforme" responses
         noConformeAdapter = NoConformeAdapter(
             onSapIdUpdated = { respuestaId, tipoAccion, sapId ->
-                // Update the action type and SAP ID for this response
-                updateRespuestaAction(respuestaId, tipoAccion, sapId)
-            }
+                // For reception inspections, update with SAP ID
+                // For delivery inspections, this is read-only
+                if (tipoInspeccion == Inspeccion.TIPO_RECEPCION) {
+                    updateRespuestaAction(respuestaId, tipoAccion, sapId)
+                }
+            },
+            isReadOnly = tipoInspeccion == Inspeccion.TIPO_ENTREGA // Read-only in delivery inspection
         )
 
         binding.noConformeRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@NoConformeSummaryActivity)
             adapter = noConformeAdapter
         }
+
+        // Setup adapter for "Rechazado" responses (only for delivery inspections)
+        if (tipoInspeccion == Inspeccion.TIPO_ENTREGA) {
+            rechazadoAdapter = RechazadoAdapter(
+                onSapIdUpdated = { respuestaId, tipoAccion, sapId ->
+                    updateRespuestaAction(respuestaId, tipoAccion, sapId)
+                }
+            )
+
+            binding.rechazadoRecyclerView.apply {
+                layoutManager = LinearLayoutManager(this@NoConformeSummaryActivity)
+                adapter = rechazadoAdapter
+            }
+        }
     }
 
     /**
-     * Loads the inspection data and No Conforme responses.
+     * Loads the inspection data and responses.
      */
     private fun loadInspectionData() {
         // Load inspection details
@@ -129,20 +156,68 @@ class NoConformeSummaryActivity : AppCompatActivity() {
                 return@observe
             }
 
-            // Set title with inspection info
-            binding.inspectionTitleText.text = inspeccionConCAEX.getTituloDescriptivo()
+            // Set title and adjust UI based on inspection type
+            if (tipoInspeccion == Inspeccion.TIPO_RECEPCION) {
+                // For reception inspections, show only NoConforme section
+                binding.inspectionTitleText.text = "Inspección de Recepción - ${inspeccionConCAEX.caex.getNombreCompleto()}"
+                title = getString(R.string.no_conforme_summary)
+
+                binding.noConformeSectionLabel.text = getString(R.string.no_conforme_items_reception)
+                binding.rechazadoSection.visibility = android.view.View.GONE
+            } else {
+                // For delivery inspections, show both sections
+                binding.inspectionTitleText.text = "Inspección de Entrega - ${inspeccionConCAEX.caex.getNombreCompleto()}"
+                title = getString(R.string.delivery_inspection_summary)
+
+                binding.noConformeSectionLabel.text = getString(R.string.no_conforme_items_reception)
+                binding.rechazadoSectionLabel.text = getString(R.string.rejected_items_delivery)
+                binding.rechazadoSection.visibility = android.view.View.VISIBLE
+
+                // Load no conforme items from reception inspection
+                if (inspeccionRecepcionId != null) {
+                    loadRecepcionItems(inspeccionRecepcionId!!)
+                }
+            }
         }
 
-        // Load No Conforme responses
+        // Load responses based on inspection type
+        if (tipoInspeccion == Inspeccion.TIPO_RECEPCION) {
+            // For reception inspections, load "No Conforme" responses
+            respuestaViewModel.getRespuestasConDetallesByInspeccionYEstado(
+                inspeccionId,
+                Respuesta.ESTADO_NO_CONFORME
+            ).observe(this) { noConformes ->
+                // Update adapter with No Conforme responses
+                noConformeAdapter.submitList(noConformes)
+
+                // Update summary text
+                binding.summaryText.text = "Total de ítems No Conformes: ${noConformes.size}"
+            }
+        } else {
+            // For delivery inspections, load "Rechazado" responses
+            respuestaViewModel.getRespuestasConDetallesByInspeccionYEstado(
+                inspeccionId,
+                Respuesta.ESTADO_RECHAZADO
+            ).observe(this) { rechazados ->
+                // Update adapter with Rechazado responses
+                rechazadoAdapter.submitList(rechazados)
+
+                // Update summary text
+                binding.summaryText.text = "Total de ítems Rechazados: ${rechazados.size}"
+            }
+        }
+    }
+
+    /**
+     * Loads "No Conforme" items from the reception inspection.
+     */
+    private fun loadRecepcionItems(recepcionId: Long) {
         respuestaViewModel.getRespuestasConDetallesByInspeccionYEstado(
-            inspeccionId,
+            recepcionId,
             Respuesta.ESTADO_NO_CONFORME
         ).observe(this) { noConformes ->
-            // Update adapter with No Conforme responses
+            // Update adapter with No Conforme responses from reception
             noConformeAdapter.submitList(noConformes)
-
-            // Update summary text
-            binding.summaryText.text = "Total de ítems No Conformes: ${noConformes.size}"
         }
     }
 
@@ -177,13 +252,12 @@ class NoConformeSummaryActivity : AppCompatActivity() {
                 // Log para depuración
                 Log.d("NoConformeSummary", "Actualizando respuesta $respuestaId: tipoAccion=$tipoAccion, sapId=$sapId")
 
-                // Actualizar la respuesta
-                val result = respuestaViewModel.actualizarRespuestaNoConforme(
-                    respuestaId,
-                    "", // Mantenemos los comentarios existentes
-                    tipoAccion,
-                    sapId
-                )
+                // Actualizar la respuesta según el tipo de inspección
+                val result = if (tipoInspeccion == Inspeccion.TIPO_RECEPCION) {
+                    respuestaViewModel.actualizarRespuestaNoConforme(respuestaId, "", tipoAccion, sapId)
+                } else {
+                    respuestaViewModel.actualizarRespuestaRechazada(respuestaId, "", tipoAccion, sapId)
+                }
 
                 // Verificar el resultado
                 if (!result) {
@@ -206,40 +280,112 @@ class NoConformeSummaryActivity : AppCompatActivity() {
             }
         }
     }
+
     /**
-     * Generates a PDF report with the No Conforme responses.
+     * Generates a PDF report with the responses.
      */
     private fun generatePdf() {
         // Create a timestamp for the filename
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val fileName = "Inspeccion_${inspeccionId}_${timestamp}.pdf"
+        val prefix = if (tipoInspeccion == Inspeccion.TIPO_RECEPCION) "Recepcion" else "Entrega"
+        val fileName = "Inspeccion_${prefix}_${inspeccionId}_${timestamp}.pdf"
 
         // Create directory in external storage
         val storageDir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
         val pdfFile = File(storageDir, fileName)
 
-        // Get No Conforme responses
+        if (tipoInspeccion == Inspeccion.TIPO_RECEPCION) {
+            // For reception inspections, generate PDF with No Conforme items
+            respuestaViewModel.getRespuestasConDetallesByInspeccionYEstado(
+                inspeccionId,
+                Respuesta.ESTADO_NO_CONFORME
+            ).observe(this) { noConformes ->
+                // Generate PDF
+                try {
+                    PdfGenerator.generatePdf(
+                        this,
+                        inspeccionId,
+                        noConformes,
+                        pdfFile
+                    )
+
+                    // Share the PDF
+                    sharePdf(pdfFile)
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        this,
+                        "Error al generar PDF: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        } else {
+            // For delivery inspections, generate PDF with both No Conforme and Rechazado items
+            if (inspeccionRecepcionId != null) {
+                generateDeliveryPdf(pdfFile, inspeccionId, inspeccionRecepcionId!!)
+            } else {
+                // If no reception inspection ID is available, only include Rechazado items
+                respuestaViewModel.getRespuestasConDetallesByInspeccionYEstado(
+                    inspeccionId,
+                    Respuesta.ESTADO_RECHAZADO
+                ).observe(this) { rechazados ->
+                    // Generate PDF
+                    try {
+                        PdfGenerator.generatePdf(
+                            this,
+                            inspeccionId,
+                            rechazados,
+                            pdfFile
+                        )
+
+                        // Share the PDF
+                        sharePdf(pdfFile)
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            this,
+                            "Error al generar PDF: ${e.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Generates a PDF for delivery inspections that includes both reception and delivery items.
+     */
+    private fun generateDeliveryPdf(pdfFile: File, entregaId: Long, recepcionId: Long) {
+        // Get No Conforme responses from reception inspection
         respuestaViewModel.getRespuestasConDetallesByInspeccionYEstado(
-            inspeccionId,
+            recepcionId,
             Respuesta.ESTADO_NO_CONFORME
         ).observe(this) { noConformes ->
-            // Generate PDF
-            try {
-                PdfGenerator.generatePdf(
-                    this,
-                    inspeccionId,
-                    noConformes,
-                    pdfFile
-                )
+            // Get Rechazado responses from delivery inspection
+            respuestaViewModel.getRespuestasConDetallesByInspeccionYEstado(
+                entregaId,
+                Respuesta.ESTADO_RECHAZADO
+            ).observe(this) { rechazados ->
+                // Generate PDF with both sets of responses
+                try {
+                    PdfGenerator.generateDeliveryPdf(
+                        this,
+                        entregaId,
+                        recepcionId,
+                        noConformes,
+                        rechazados,
+                        pdfFile
+                    )
 
-                // Share the PDF
-                sharePdf(pdfFile)
-            } catch (e: Exception) {
-                Toast.makeText(
-                    this,
-                    "Error al generar PDF: ${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
+                    // Share the PDF
+                    sharePdf(pdfFile)
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        this,
+                        "Error al generar PDF: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
     }
@@ -325,17 +471,32 @@ class NoConformeSummaryActivity : AppCompatActivity() {
      * Validates that all required inputs are filled.
      */
     private fun validateInputs(): Boolean {
-        // Check if all No Conforme items have action type and SAP ID
-        val incompleteItems = noConformeAdapter.getIncompleteItems()
+        // For reception inspections, check if all No Conforme items have action type and SAP ID
+        if (tipoInspeccion == Inspeccion.TIPO_RECEPCION) {
+            val incompleteItems = noConformeAdapter.getIncompleteItems()
 
-        if (incompleteItems.isNotEmpty()) {
-            // Show error message
-            Toast.makeText(
-                this,
-                "Hay ${incompleteItems.size} ítems No Conforme sin tipo de acción o ID SAP",
-                Toast.LENGTH_LONG
-            ).show()
-            return false
+            if (incompleteItems.isNotEmpty()) {
+                // Show error message
+                Toast.makeText(
+                    this,
+                    "Hay ${incompleteItems.size} ítems No Conforme sin tipo de acción o ID SAP",
+                    Toast.LENGTH_LONG
+                ).show()
+                return false
+            }
+        } else {
+            // For delivery inspections, check if all Rechazado items have action type and SAP ID
+            val incompleteItems = rechazadoAdapter.getIncompleteItems()
+
+            if (incompleteItems.isNotEmpty()) {
+                // Show error message
+                Toast.makeText(
+                    this,
+                    "Hay ${incompleteItems.size} ítems Rechazado sin tipo de acción o ID SAP",
+                    Toast.LENGTH_LONG
+                ).show()
+                return false
+            }
         }
 
         return true
@@ -356,5 +517,7 @@ class NoConformeSummaryActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_INSPECCION_ID = "extra_inspeccion_id"
+        const val EXTRA_INSPECCION_TIPO = "extra_inspeccion_tipo"
+        const val EXTRA_INSPECCION_RECEPCION_ID = "extra_inspeccion_recepcion_id"
     }
 }

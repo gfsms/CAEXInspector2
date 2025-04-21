@@ -53,17 +53,61 @@
                 app:layout_constraintTop_toBottomOf="@+id/inspectionTitleText"
                 tools:text="Total de ítems No Conformes: 5" />
 
+            <!-- No Conforme Section (for both reception and delivery) -->
+            <TextView
+                android:id="@+id/noConformeSectionLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/summaryText"
+                tools:text="Ítems No Conformes de Inspección Inicial" />
+
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/noConformeRecyclerView"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="8dp"
                 android:nestedScrollingEnabled="false"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/summaryText"
+                app:layout_constraintTop_toBottomOf="@+id/noConformeSectionLabel"
                 tools:itemCount="3"
                 tools:listitem="@layout/item_no_conforme" />
+
+            <!-- Rechazado Section (only for delivery) -->
+            <LinearLayout
+                android:id="@+id/rechazadoSection"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="vertical"
+                android:visibility="gone"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/noConformeRecyclerView"
+                tools:visibility="visible">
+
+                <TextView
+                    android:id="@+id/rechazadoSectionLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    tools:text="Ítems Rechazados en Inspección Actual" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rechazadoRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:nestedScrollingEnabled="false"
+                    tools:itemCount="2"
+                    tools:listitem="@layout/item_no_conforme" />
+            </LinearLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/generalCommentsLayout"
@@ -74,7 +118,7 @@
                 android:hint="@string/general_comments_hint"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/noConformeRecyclerView">
+                app:layout_constraintTop_toBottomOf="@+id/rechazadoSection">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/generalCommentsEditText"
