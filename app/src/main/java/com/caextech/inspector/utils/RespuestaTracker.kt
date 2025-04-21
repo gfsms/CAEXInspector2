@@ -7,40 +7,65 @@ import com.caextech.inspector.data.relations.RespuestaConDetalles
  * Clase para rastrear todas las respuestas en memoria, independientemente de si están
  * guardadas en la base de datos o no.
  *
- * Esta clase resuelve el problema de respuestas "No Conforme" que se pierden al
- * seleccionar "Conforme" en otras preguntas cuando no tienen fotos o comentarios.
+ * Esta clase resuelve el problema de respuestas que se pierden al navegar entre fragmentos
+ * o al volver de actividades como la cámara.
  */
 object RespuestaTracker {
     private const val TAG = "RespuestaTracker"
 
     // Mapa para rastrear el estado de todas las respuestas por inspecciónId y preguntaId
     private val respuestasEnMemoria = mutableMapOf<Pair<Long, Long>, String>()
+
+    // Mapa para asociar respuestaId con el par inspeccionId-preguntaId
+    private val respuestaIdMap = mutableMapOf<Long, Pair<Long, Long>>()
+
     /**
-     * Ensures the question state is properly set after photo capture
+     * Asegura que el estado de la pregunta sea el deseado
      */
     fun ensureQuestionState(inspeccionId: Long, preguntaId: Long, deseadoEstado: String) {
         val key = Pair(inspeccionId, preguntaId)
         val estadoActual = respuestasEnMemoria[key]
 
-        // If current state doesn't match desired state, update it
+        // Si el estado actual no coincide con el deseado, actualizarlo
         if (estadoActual != deseadoEstado) {
             respuestasEnMemoria[key] = deseadoEstado
             Logger.d(TAG, "Estado restaurado para inspección $inspeccionId, pregunta $preguntaId: $deseadoEstado")
         }
     }
+
     /**
-     * Ensures a question is marked as No Conforme or Rechazado after photo capture
+     * Registra el mapeo de respuestaId a inspeccionId-preguntaId
+     */
+    fun registrarRespuestaId(respuestaId: Long, inspeccionId: Long, preguntaId: Long) {
+        respuestaIdMap[respuestaId] = Pair(inspeccionId, preguntaId)
+        Logger.d(TAG, "Mapeo registrado: respuestaId $respuestaId -> inspección $inspeccionId, pregunta $preguntaId")
+    }
+
+    /**
+     * Asegura que una pregunta esté marcada como No Conforme o Rechazado después de capturar una foto
      */
     fun ensureNoConformeEstado(respuestaId: Long) {
-        // Find any entry that references this respuestaId
-        // This is just a safety measure to prevent state loss after camera activity
-        respuestasEnMemoria.entries.forEach { (key, estado) ->
-            if (estado == Respuesta.ESTADO_NO_CONFORME || estado == Respuesta.ESTADO_RECHAZADO) {
-                // Keep this state
-                Logger.d(TAG, "Preservando estado ${estado} para respuestaId: $respuestaId")
+        // Buscar el par inspeccionId-preguntaId para este respuestaId
+        val idPair = respuestaIdMap[respuestaId]
+        if (idPair != null) {
+            val (inspeccionId, preguntaId) = idPair
+            val estadoActual = respuestasEnMemoria[idPair]
+
+            // Si el estado es No Conforme o Rechazado, mantenerlo
+            if (estadoActual == Respuesta.ESTADO_NO_CONFORME || estadoActual == Respuesta.ESTADO_RECHAZADO) {
+                // No hacer nada, mantener el estado
+                Logger.d(TAG, "Preservando estado $estadoActual para respuestaId: $respuestaId")
+            } else {
+                // Si no tiene estado o es otro estado, determinar el apropiado basado en el respuestaId
+                // Asumir que es No Conforme si no sabemos exactamente
+                respuestasEnMemoria[idPair] = Respuesta.ESTADO_NO_CONFORME
+                Logger.d(TAG, "Estableciendo estado NO_CONFORME para respuestaId: $respuestaId")
             }
+        } else {
+            Logger.w(TAG, "No se encontró mapeo para respuestaId: $respuestaId")
         }
     }
+
     /**
      * Registra una respuesta "Conforme" para una pregunta específica en una inspección
      */
@@ -58,16 +83,6 @@ object RespuestaTracker {
         respuestasEnMemoria[key] = Respuesta.ESTADO_NO_CONFORME
         Logger.d(TAG, "Registrada respuesta NO_CONFORME para inspección $inspeccionId, pregunta $preguntaId")
     }
-
-    /**
-     * Obtiene el estado actual de una respuesta en memoria
-     * @return el estado (CONFORME o NO_CONFORME) o null si no hay respuesta registrada
-     */
-    fun obtenerEstadoRespuesta(inspeccionId: Long, preguntaId: Long): String? {
-        val key = Pair(inspeccionId, preguntaId)
-        return respuestasEnMemoria[key]
-    }
-// Add these methods to RespuestaTracker.kt
 
     /**
      * Registra una respuesta "Aceptado" para una pregunta específica en una inspección
@@ -88,6 +103,15 @@ object RespuestaTracker {
     }
 
     /**
+     * Obtiene el estado actual de una respuesta en memoria
+     * @return el estado (CONFORME, NO_CONFORME, ACEPTADO, RECHAZADO) o null si no hay respuesta registrada
+     */
+    fun obtenerEstadoRespuesta(inspeccionId: Long, preguntaId: Long): String? {
+        val key = Pair(inspeccionId, preguntaId)
+        return respuestasEnMemoria[key]
+    }
+
+    /**
      * Obtiene si una respuesta estaba marcada como "No Conforme" en una inspección previa
      * utilizando el ID de la inspección previa.
      *
@@ -100,38 +124,21 @@ object RespuestaTracker {
         val estado = respuestasEnMemoria[key]
         return estado == Respuesta.ESTADO_NO_CONFORME
     }
+
     /**
-     * Combina las respuestas de la base de datos con las respuestas en memoria
-     * para asegurar que no se pierda ningún estado
+     * Actualiza el mapa de memoria con datos de la base de datos
      */
-    fun combinarRespuestasConMemoria(
-        inspeccionId: Long,
-        respuestasDB: List<RespuestaConDetalles>
-    ): List<RespuestaConDetalles> {
-        // Convertir respuestas de DB a mutable list para poder modificarla
-        val respuestasCombinadas = respuestasDB.toMutableList()
+    fun actualizarDesdeBaseDeDatos(inspeccionId: Long, respuestasDB: List<RespuestaConDetalles>) {
+        for (respuesta in respuestasDB) {
+            val preguntaId = respuesta.pregunta.preguntaId
+            val key = Pair(inspeccionId, preguntaId)
+            respuestasEnMemoria[key] = respuesta.respuesta.estado
 
-        // Conjunto de IDs de preguntas que ya tienen respuesta en la DB
-        val preguntasConRespuesta = respuestasDB.map { it.pregunta.preguntaId }.toSet()
+            // También registrar el mapeo de respuestaId
+            registrarRespuestaId(respuesta.respuesta.respuestaId, inspeccionId, preguntaId)
 
-        // Buscar respuestas en memoria que no están en la DB
-        val respuestasMemoria = respuestasEnMemoria.entries
-            .filter { (key, _) ->
-                key.first == inspeccionId && !preguntasConRespuesta.contains(key.second)
-            }
-
-        // Log para debugging
-        if (respuestasMemoria.isNotEmpty()) {
-            Logger.d(TAG, "Encontradas ${respuestasMemoria.size} respuestas en memoria " +
-                    "que no están en la DB para inspección $inspeccionId")
+            Logger.d(TAG, "Actualizado estado desde DB para inspección $inspeccionId, pregunta $preguntaId: ${respuesta.respuesta.estado}")
         }
-
-        // Aquí implementaríamos la lógica para crear RespuestaConDetalles para las
-        // respuestas que solo existen en memoria, pero esto requeriría acceso a la DB
-        // para obtener la información de la pregunta, lo cual complica la implementación.
-
-        // En lugar de eso, vamos a usar esta información en el adapter
-        return respuestasCombinadas
     }
 
     /**
@@ -145,6 +152,15 @@ object RespuestaTracker {
             respuestasEnMemoria.remove(key)
         }
 
+        // También limpiar mapeos de respuestaId
+        val respuestaIdsToRemove = respuestaIdMap.entries
+            .filter { it.value.first == inspeccionId }
+            .map { it.key }
+
+        respuestaIdsToRemove.forEach {
+            respuestaIdMap.remove(it)
+        }
+
         Logger.d(TAG, "Limpiadas ${keysToRemove.size} respuestas para inspección $inspeccionId")
     }
 
@@ -154,6 +170,7 @@ object RespuestaTracker {
     fun limpiarTodas() {
         val cantidad = respuestasEnMemoria.size
         respuestasEnMemoria.clear()
+        respuestaIdMap.clear()
         Logger.d(TAG, "Limpiadas $cantidad respuestas de todas las inspecciones")
     }
 }

@@ -20,9 +20,9 @@ import com.caextech.inspector.utils.Logger
 import com.caextech.inspector.utils.RespuestaTracker
 
 /**
- * Adapter for displaying delivery inspection questions in a RecyclerView.
- * Handles questions for delivery inspections showing "Aceptado"/"Rechazado" options,
- * and highlights questions that were "No Conforme" in the reception inspection.
+ * Adaptador mejorado para mostrar preguntas de inspección de entrega en un RecyclerView.
+ * Maneja preguntas con opciones "Aceptado"/"Rechazado" y resalta preguntas que fueron
+ * "No Conforme" en la inspección de recepción.
  */
 class DeliveryQuestionAdapter(
     private val context: Context,
@@ -37,12 +37,20 @@ class DeliveryQuestionAdapter(
 ) : RecyclerView.Adapter<DeliveryQuestionAdapter.DeliveryQuestionViewHolder>() {
     private val TAG = "DeliveryQuestionAdapter"
 
+    // Listas y mapas para gestionar el estado
     private val preguntas = mutableListOf<Pregunta>()
 
-    // Map to store the state of all responses
+    // Mapa para almacenar las respuestas con todos sus detalles
     private val respuestas = mutableMapOf<Long, RespuestaConDetalles>()
 
-    // Map to store the photo adapters
+    // Mapa para almacenar el estado actual de cada pregunta, independientemente de si está en la BD
+    // Esta es nuestra fuente de verdad unificada
+    private val estadoActual = mutableMapOf<Long, String>()
+
+    // Mapa para almacenar los comentarios que el usuario ha ingresado pero aún no se han guardado
+    private val comentariosTemp = mutableMapOf<Long, String>()
+
+    // Mapa para almacenar los adaptadores de fotos
     private val photoAdapters = mutableMapOf<Long, PhotoThumbnailAdapter>()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DeliveryQuestionViewHolder {
@@ -56,56 +64,39 @@ class DeliveryQuestionAdapter(
 
     override fun onBindViewHolder(holder: DeliveryQuestionViewHolder, position: Int) {
         val pregunta = preguntas[position]
-        val respuesta = respuestas[pregunta.preguntaId]
-        holder.bind(pregunta, respuesta)
+        holder.bind(pregunta)
     }
 
     override fun getItemCount(): Int = preguntas.size
 
-    // Crucial: Use the pregunta ID as the stable ID
+    // Crucial: Usar el ID de la pregunta como ID estable
     override fun getItemId(position: Int): Long {
         return preguntas[position].preguntaId
     }
 
-    // Enable stable IDs to maintain view state
+    // Habilitar IDs estables para mantener el estado de las vistas
     init {
         setHasStableIds(true)
     }
 
     /**
-     * Updates the list of questions displayed by the adapter.
+     * Actualiza la lista de preguntas que muestra el adaptador.
      */
     fun updatePreguntas(newPreguntas: List<Pregunta>) {
         preguntas.clear()
         preguntas.addAll(newPreguntas)
-        notifyDataSetChanged()
-    }
 
-
-    /**
-     * Updates the map of responses for the questions.
-     */
-    fun updateRespuestas(newRespuestas: List<RespuestaConDetalles>) {
-        Logger.d(TAG, "Actualizando respuestas: ${newRespuestas.size} recibidas")
-
-        // Limpiar el mapa de respuestas actual
-        respuestas.clear()
-
-        // Update the responses map with the new responses
-        for (respuesta in newRespuestas) {
-            respuestas[respuesta.pregunta.preguntaId] = respuesta
-            Logger.d(TAG, "Agregada respuesta DB para pregunta ${respuesta.pregunta.preguntaId}: ${respuesta.respuesta.estado}")
-        }
-
-        // Verificar respuestas en memoria que no están en la DB
-        for (pregunta in preguntas) {
-            // Si ya tenemos esta respuesta en el mapa, continuar
-            if (respuestas.containsKey(pregunta.preguntaId)) continue
-
-            // Verificar si tenemos una respuesta en memoria
-            val estadoEnMemoria = RespuestaTracker.obtenerEstadoRespuesta(inspeccionId, pregunta.preguntaId)
-            if (estadoEnMemoria != null) {
-                Logger.d(TAG, "Encontrada respuesta en memoria para pregunta ${pregunta.preguntaId}: $estadoEnMemoria")
+        // Inicializar el estado para nuevas preguntas
+        for (pregunta in newPreguntas) {
+            // Solo inicializar si no existe ya en el mapa de estado
+            if (!estadoActual.containsKey(pregunta.preguntaId)) {
+                // Verificar si hay un estado en memoria en RespuestaTracker
+                val estadoEnMemoria = RespuestaTracker.obtenerEstadoRespuesta(inspeccionId, pregunta.preguntaId)
+                if (estadoEnMemoria != null) {
+                    // Usar el estado de memoria como estado inicial
+                    estadoActual[pregunta.preguntaId] = estadoEnMemoria
+                    Logger.d(TAG, "Estado inicial desde memoria para pregunta ${pregunta.preguntaId}: $estadoEnMemoria")
+                }
             }
         }
 
@@ -113,24 +104,81 @@ class DeliveryQuestionAdapter(
     }
 
     /**
-     * ViewHolder for displaying delivery questions with unique UI for delivery inspections.
+     * Actualiza el mapa de respuestas con las respuestas de la base de datos.
      */
+    fun updateRespuestas(newRespuestas: List<RespuestaConDetalles>) {
+        Logger.d(TAG, "Actualizando respuestas: ${newRespuestas.size} recibidas")
+
+        // Guardar las respuestas en el mapa
+        respuestas.clear()
+        for (respuesta in newRespuestas) {
+            val preguntaId = respuesta.pregunta.preguntaId
+            respuestas[preguntaId] = respuesta
+
+            // Actualizar el estado actual desde la BD para esta pregunta
+            estadoActual[preguntaId] = respuesta.respuesta.estado
+
+            Logger.d(TAG, "Agregada respuesta DB para pregunta $preguntaId: ${respuesta.respuesta.estado}")
+        }
+
+        // Actualizar la UI para reflejar los cambios
+        notifyDataSetChanged()
+    }
+
+    /**
+     * Actualiza el conjunto de preguntas que fueron marcadas como "No Conforme" en la inspección de recepción.
+     */
+    fun updateNoConformePreguntas(noConformePreguntas: Set<Long>) {
+        // Solo notificar cambios si hay diferencias
+        if (this.preguntasNoConformes != noConformePreguntas) {
+            notifyDataSetChanged()
+        }
+    }
+
     inner class DeliveryQuestionViewHolder(private val binding: ItemDeliveryQuestionBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(pregunta: Pregunta, respuesta: RespuestaConDetalles?) {
-            // Clear existing state first - important for recycled views
+        private var currentPreguntaId: Long = 0
+
+        fun bind(pregunta: Pregunta) {
+            // Guardar el ID de la pregunta actual
+            currentPreguntaId = pregunta.preguntaId
+
+            // Limpiar estado visual primero (importante para vistas recicladas)
             clearViewState()
 
-            // Set question text
+            // Configurar texto de la pregunta
             binding.questionNumberText.text = "Pregunta ${pregunta.orden}"
             binding.questionText.text = pregunta.texto
 
-            // Check if this question was marked as No Conforme in the reception inspection
-            val wasNoConforme = preguntasNoConformes.contains(pregunta.preguntaId)
+            // Resaltar si esta pregunta fue "No Conforme" en la inspección de recepción
+            handleNoConformeHighlight(pregunta)
 
-            // Highlight the background if the question was No Conforme in reception
-            if (wasNoConforme) {
+            // Obtener el estado actual de esta pregunta
+            val estadoRespuesta = estadoActual[pregunta.preguntaId]
+            val respuestaDetalles = respuestas[pregunta.preguntaId]
+
+            // Configurar la vista según el estado actual
+            if (estadoRespuesta != null) {
+                // Si hay un estado, configurar la UI según ese estado
+                configureViewForState(pregunta, estadoRespuesta, respuestaDetalles)
+            } else {
+                // Si no hay estado, mostrar como pendiente
+                binding.statusText.text = "Pendiente"
+                binding.statusText.setTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+            }
+
+            // Configurar los listeners DESPUÉS de establecer el estado
+            setupRadioButtonListeners(pregunta)
+            setupCommentFieldListener(pregunta)
+            setupAddPhotoButton(pregunta)
+        }
+
+        /**
+         * Resalta si la pregunta fue marcada como "No Conforme" en la inspección de recepción
+         */
+        private fun handleNoConformeHighlight(pregunta: Pregunta) {
+            if (preguntasNoConformes.contains(pregunta.preguntaId)) {
                 binding.questionCard.setCardBackgroundColor(
                     ContextCompat.getColor(context, R.color.highlight_no_conforme_background)
                 )
@@ -142,191 +190,203 @@ class DeliveryQuestionAdapter(
                 )
                 binding.recepcionStatusText.visibility = View.GONE
             }
-
-            // Check if we have a response in memory that's not in the DB
-            val estadoEnMemoria = RespuestaTracker.obtenerEstadoRespuesta(inspeccionId, pregunta.preguntaId)
-
-            // Configure the view based on the response or memory state
-            if (respuesta != null) {
-                // We have a DB response, use that
-                configureViewForDbResponse(pregunta, respuesta)
-            } else if (estadoEnMemoria != null) {
-                // We have a memory-only response, use that
-                configureViewForMemoryResponse(pregunta, estadoEnMemoria)
-            } else {
-                // No response yet
-                binding.statusText.text = "Pendiente"
-                binding.statusText.setTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
-            }
-
-            // Set up the click listeners AFTER configuring the view
-            setupClickListeners(pregunta)
         }
 
         /**
-         * Clears the state of the view to prepare for binding new data
+         * Limpia el estado visual de la vista para prepararla para nuevos datos
          */
         private fun clearViewState() {
-            // Remove listeners first to prevent accidental triggers
+            // Eliminar listeners primero para evitar activaciones accidentales
             binding.radioAceptado.setOnClickListener(null)
             binding.radioRechazado.setOnClickListener(null)
+            binding.commentsEditText.setOnFocusChangeListener(null)
+            binding.addPhotoButton.setOnClickListener(null)
+
+            // Restablecer estado visual
             binding.answerRadioGroup.clearCheck()
             binding.commentsEditText.setText("")
             binding.commentsLayout.visibility = View.GONE
             binding.photosContainer.visibility = View.GONE
+            binding.statusText.text = ""
         }
 
         /**
-         * Configures the view based on a response from the database
+         * Configura la vista según el estado de la respuesta
          */
-        private fun configureViewForDbResponse(pregunta: Pregunta, respuesta: RespuestaConDetalles) {
-            // Configure based on response state
-            when (respuesta.respuesta.estado) {
-                Respuesta.ESTADO_ACEPTADO -> {
-                    binding.radioAceptado.isChecked = true
-                    binding.statusText.text = "Aceptado"
-                    binding.statusText.setTextColor(ContextCompat.getColor(context, R.color.status_conforme))
-                }
-                Respuesta.ESTADO_RECHAZADO -> {
-                    binding.radioRechazado.isChecked = true
-                    binding.commentsLayout.visibility = View.VISIBLE
-                    binding.commentsEditText.setText(respuesta.respuesta.comentarios)
-                    binding.statusText.text = "Rechazado"
-                    binding.statusText.setTextColor(ContextCompat.getColor(context, R.color.status_no_conforme))
-
-                    // Configure photos section
-                    binding.photosContainer.visibility = View.VISIBLE
-                    if (respuesta.tieneFotos()) {
-                        setupPhotosRecyclerView(respuesta)
-                    }
-                }
-            }
-
-            // Register the state in memory for redundancy
-            if (respuesta.respuesta.estado == Respuesta.ESTADO_ACEPTADO) {
-                RespuestaTracker.registrarRespuestaAceptada(inspeccionId, pregunta.preguntaId)
-            } else {
-                RespuestaTracker.registrarRespuestaRechazada(inspeccionId, pregunta.preguntaId)
-            }
-        }
-
-        /**
-         * Configures the view based on a response that only exists in memory
-         */
-        private fun configureViewForMemoryResponse(pregunta: Pregunta, estado: String) {
+        private fun configureViewForState(pregunta: Pregunta, estado: String, respuestaDetalles: RespuestaConDetalles?) {
             when (estado) {
                 Respuesta.ESTADO_ACEPTADO -> {
                     binding.radioAceptado.isChecked = true
+                    binding.commentsLayout.visibility = View.GONE
+                    binding.photosContainer.visibility = View.GONE
                     binding.statusText.text = "Aceptado"
                     binding.statusText.setTextColor(ContextCompat.getColor(context, R.color.status_conforme))
                 }
                 Respuesta.ESTADO_RECHAZADO -> {
                     binding.radioRechazado.isChecked = true
                     binding.commentsLayout.visibility = View.VISIBLE
-                    binding.statusText.text = "Rechazado (Pendiente de guardar)"
+
+                    // Mostrar comentarios si hay una respuesta guardada o comentarios temporales
+                    if (respuestaDetalles != null) {
+                        binding.commentsEditText.setText(respuestaDetalles.respuesta.comentarios)
+                    } else if (comentariosTemp.containsKey(pregunta.preguntaId)) {
+                        binding.commentsEditText.setText(comentariosTemp[pregunta.preguntaId])
+                    }
+
+                    binding.statusText.text = "Rechazado"
                     binding.statusText.setTextColor(ContextCompat.getColor(context, R.color.status_no_conforme))
+
+                    // Configurar sección de fotos
                     binding.photosContainer.visibility = View.VISIBLE
+                    if (respuestaDetalles != null && respuestaDetalles.tieneFotos()) {
+                        setupPhotosRecyclerView(respuestaDetalles)
+                    }
                 }
             }
         }
 
         /**
-         * Sets up click listeners for the radio buttons and other UI elements
+         * Configura los listeners para los RadioButtons
          */
-        private fun setupClickListeners(pregunta: Pregunta) {
-            // Set up click listeners for radio buttons - do this individually
-            // instead of using RadioGroup.OnCheckedChangeListener to avoid issues
+        private fun setupRadioButtonListeners(pregunta: Pregunta) {
             binding.radioAceptado.setOnClickListener {
-                // Update memory tracker first
+                // Actualizar estado local
+                estadoActual[pregunta.preguntaId] = Respuesta.ESTADO_ACEPTADO
+
+                // Actualizar RespuestaTracker
                 RespuestaTracker.registrarRespuestaAceptada(inspeccionId, pregunta.preguntaId)
 
-                // Handle "Aceptado" selection in DB
-                onAceptadoSelected(pregunta.preguntaId)
-
-                // Update UI immediately
+                // Actualizar UI
                 binding.commentsLayout.visibility = View.GONE
                 binding.photosContainer.visibility = View.GONE
                 binding.statusText.text = "Aceptado"
                 binding.statusText.setTextColor(ContextCompat.getColor(context, R.color.status_conforme))
+
+                // Guardar en la base de datos
+                onAceptadoSelected(pregunta.preguntaId)
             }
 
             binding.radioRechazado.setOnClickListener {
-                // Update memory tracker first
+                // Actualizar estado local
+                estadoActual[pregunta.preguntaId] = Respuesta.ESTADO_RECHAZADO
+
+                // Actualizar RespuestaTracker
                 RespuestaTracker.registrarRespuestaRechazada(inspeccionId, pregunta.preguntaId)
 
-                // Show comments UI
+                // Actualizar UI
                 binding.commentsLayout.visibility = View.VISIBLE
                 binding.photosContainer.visibility = View.VISIBLE
                 binding.statusText.text = "Rechazado"
                 binding.statusText.setTextColor(ContextCompat.getColor(context, R.color.status_no_conforme))
 
-                // Handle existing comment if any
+                // Si ya hay comentarios, guardar la respuesta
                 val comentarios = binding.commentsEditText.text.toString()
                 if (comentarios.isNotBlank()) {
-                    onRechazadoSelected(pregunta.preguntaId, comentarios)
+                    guardarRespuestaRechazada(pregunta.preguntaId, comentarios)
                 }
             }
+        }
 
-            // Set up comment field listener
+        /**
+         * Configura el listener para el campo de comentarios
+         */
+        private fun setupCommentFieldListener(pregunta: Pregunta) {
             binding.commentsEditText.setOnFocusChangeListener { _, hasFocus ->
                 if (!hasFocus) {
                     val comentarios = binding.commentsEditText.text.toString()
+
+                    // Guardar comentarios temporalmente
+                    comentariosTemp[pregunta.preguntaId] = comentarios
+
+                    // Si está marcado como Rechazado y hay comentarios, guardar en BD
                     if (binding.radioRechazado.isChecked && comentarios.isNotBlank()) {
-                        onRechazadoSelected(pregunta.preguntaId, comentarios)
+                        guardarRespuestaRechazada(pregunta.preguntaId, comentarios)
                     }
                 }
             }
+        }
 
-            // Set up add photo button
+        /**
+         * Guarda una respuesta Rechazada para una pregunta
+         */
+        private fun guardarRespuestaRechazada(preguntaId: Long, comentarios: String) {
+            if (comentarios.isBlank()) return
+
+            // Actualizar RespuestaTracker para mantener estado consistente
+            RespuestaTracker.registrarRespuestaRechazada(inspeccionId, preguntaId)
+
+            // Guardar en la base de datos
+            onRechazadoSelected(preguntaId, comentarios)
+        }
+
+        /**
+         * Configura el botón para agregar fotos
+         */
+        private fun setupAddPhotoButton(pregunta: Pregunta) {
             binding.addPhotoButton.setOnClickListener {
-                val respuesta = respuestas[pregunta.preguntaId]
+                val respuestaDetalles = respuestas[pregunta.preguntaId]
 
-                if (respuesta != null) {
-                    // If we have a response, show the photo capture dialog
-                    showPhotoCaptureDialog(respuesta.respuesta.respuestaId)
+                if (respuestaDetalles != null) {
+                    // Si ya existe una respuesta, mostrar diálogo de captura de foto
+                    showPhotoCaptureDialog(respuestaDetalles.respuesta.respuestaId)
                 } else {
-                    // If no response yet, first create one with comments
+                    // Si no hay respuesta aún, primero crear una con comentarios
                     val comentarios = binding.commentsEditText.text.toString().ifBlank {
-                        // Si no hay comentarios, usar un comentario temporal
                         "Pendiente de detallar"
                     }
 
-                    // Mandatory to have a comment for Rechazado
-                    binding.radioRechazado.isChecked = true
+                    // Asegurar que está marcado como Rechazado
+                    if (!binding.radioRechazado.isChecked) {
+                        binding.radioRechazado.isChecked = true
+                        // Actualizar estado local
+                        estadoActual[pregunta.preguntaId] = Respuesta.ESTADO_RECHAZADO
+                        // Actualizar tracker
+                        RespuestaTracker.registrarRespuestaRechazada(inspeccionId, pregunta.preguntaId)
+                    }
+
+                    // Guardar respuesta en BD
                     onRechazadoSelected(pregunta.preguntaId, comentarios)
 
-                    // Note: ideally we would wait for the response ID before showing the dialog
-                    // We'll show a message for now and let the user try again after a moment
+                    // Mostrar indicación temporal
                     binding.statusText.text = "Guardando respuesta..."
-                    // Add delay to ensure response is created before showing dialog
+
+                    // Esperar un momento para que se cree la respuesta
                     binding.root.postDelayed({
-                        // Try again after response is created
+                        // Intentar de nuevo después de crear la respuesta
                         val newRespuesta = respuestas[pregunta.preguntaId]
                         if (newRespuesta != null) {
                             showPhotoCaptureDialog(newRespuesta.respuesta.respuestaId)
                         } else {
                             Toast.makeText(context, "Intente nuevamente en un momento", Toast.LENGTH_SHORT).show()
                         }
-                    }, 500) // 500ms delay
+                    }, 500) // 500ms de retraso
                 }
             }
         }
 
         /**
-         * Shows the photo capture dialog
+         * Muestra el diálogo de captura de fotos
          */
         private fun showPhotoCaptureDialog(respuestaId: Long) {
             val dialog = PhotoCaptureFragment.newInstance(respuestaId)
             dialog.show(fragmentManager, "PhotoCaptureFragment")
+
+            // Guardar el estado actual para evitar pérdida al volver de la cámara
+            RespuestaTracker.ensureNoConformeEstado(respuestaId)
+
+            // Asegurar que el estado de la pregunta actual se mantiene como RECHAZADO
+            if (currentPreguntaId > 0) {
+                estadoActual[currentPreguntaId] = Respuesta.ESTADO_RECHAZADO
+            }
         }
 
         /**
-         * Sets up the photos RecyclerView
+         * Configura el RecyclerView de fotos
          */
         private fun setupPhotosRecyclerView(respuesta: RespuestaConDetalles) {
             val respuestaId = respuesta.respuesta.respuestaId
 
-            // Create adapter if needed
+            // Crear adaptador si es necesario
             if (!photoAdapters.containsKey(respuestaId)) {
                 photoAdapters[respuestaId] = PhotoThumbnailAdapter(
                     onDeleteClicked = { foto ->
@@ -337,13 +397,13 @@ class DeliveryQuestionAdapter(
 
             val photoAdapter = photoAdapters[respuestaId]!!
 
-            // Setup RecyclerView
+            // Configurar RecyclerView
             binding.photosRecyclerView.apply {
                 layoutManager = LinearLayoutManager(context, RecyclerView.HORIZONTAL, false)
                 adapter = photoAdapter
             }
 
-            // Update photos
+            // Actualizar fotos
             photoAdapter.updatePhotos(respuesta.fotos)
         }
     }
