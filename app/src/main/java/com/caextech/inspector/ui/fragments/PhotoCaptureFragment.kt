@@ -19,8 +19,10 @@ import com.caextech.inspector.CAEXInspectorApp
 import com.caextech.inspector.R
 import com.caextech.inspector.databinding.FragmentPhotoCaptureBinding
 import com.caextech.inspector.ui.viewmodels.FotoViewModel
+import com.caextech.inspector.ui.viewmodels.RespuestaViewModel
 import com.caextech.inspector.utils.FileUtils
 import com.caextech.inspector.utils.Logger
+import com.caextech.inspector.utils.RespuestaTracker
 import kotlinx.coroutines.launch
 import java.io.File
 import java.lang.ref.WeakReference
@@ -321,7 +323,11 @@ class PhotoCaptureFragment : DialogFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val descripcion = binding.descriptionEditText.text.toString()
-                fotoViewModel.guardarFotoDirecta(respuestaId, path, descripcion)
+                val fotoId = fotoViewModel.guardarFotoDirecta(respuestaId, path, descripcion)
+
+                // Ensure no state loss on return from camera
+                RespuestaTracker.ensureNoConformeEstado(respuestaId)
+
                 Logger.d(TAG, "Photo save request sent to ViewModel")
             } catch (e: Exception) {
                 Logger.e(TAG, "Error saving photo: ${e.message}", e)

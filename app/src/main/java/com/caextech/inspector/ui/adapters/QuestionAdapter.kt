@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -270,11 +271,24 @@ class QuestionAdapter(
                     }
 
                     // Mandatory to have a comment for No Conforme
+                    binding.radioNoConforme.isChecked = true
                     onNoConformeSelected(pregunta.preguntaId, comentarios)
+
+                    Toast.makeText(context, "Guardando respuesta, intente agregar foto nuevamente", Toast.LENGTH_SHORT).show()
 
                     // Note: ideally we would wait for the response ID before showing the dialog
                     // We'll show a message for now and let the user try again after a moment
                     binding.statusText.text = "Guardando respuesta..."
+                    // Add delay to ensure response is created before showing dialog
+                    binding.root.postDelayed({
+                        // Try again after response is created
+                        val newRespuesta = respuestas[pregunta.preguntaId]
+                        if (newRespuesta != null) {
+                            showPhotoCaptureDialog(newRespuesta.respuesta.respuestaId)
+                        } else {
+                            Toast.makeText(context, "Intente nuevamente en un momento", Toast.LENGTH_SHORT).show()
+                        }
+                    }, 500) // 500ms delay
                 }
             }
         }

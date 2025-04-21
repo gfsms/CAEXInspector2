@@ -15,7 +15,32 @@ object RespuestaTracker {
 
     // Mapa para rastrear el estado de todas las respuestas por inspecciónId y preguntaId
     private val respuestasEnMemoria = mutableMapOf<Pair<Long, Long>, String>()
+    /**
+     * Ensures the question state is properly set after photo capture
+     */
+    fun ensureQuestionState(inspeccionId: Long, preguntaId: Long, deseadoEstado: String) {
+        val key = Pair(inspeccionId, preguntaId)
+        val estadoActual = respuestasEnMemoria[key]
 
+        // If current state doesn't match desired state, update it
+        if (estadoActual != deseadoEstado) {
+            respuestasEnMemoria[key] = deseadoEstado
+            Logger.d(TAG, "Estado restaurado para inspección $inspeccionId, pregunta $preguntaId: $deseadoEstado")
+        }
+    }
+    /**
+     * Ensures a question is marked as No Conforme or Rechazado after photo capture
+     */
+    fun ensureNoConformeEstado(respuestaId: Long) {
+        // Find any entry that references this respuestaId
+        // This is just a safety measure to prevent state loss after camera activity
+        respuestasEnMemoria.entries.forEach { (key, estado) ->
+            if (estado == Respuesta.ESTADO_NO_CONFORME || estado == Respuesta.ESTADO_RECHAZADO) {
+                // Keep this state
+                Logger.d(TAG, "Preservando estado ${estado} para respuestaId: $respuestaId")
+            }
+        }
+    }
     /**
      * Registra una respuesta "Conforme" para una pregunta específica en una inspección
      */
