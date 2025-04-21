@@ -1,5 +1,6 @@
 package com.caextech.inspector.ui.fragments
 
+import android.app.ProgressDialog
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -18,7 +19,7 @@ import com.caextech.inspector.ui.adapters.InspectionAdapter
 import com.caextech.inspector.ui.inspection.CreateDeliveryInspectionActivity
 import com.caextech.inspector.ui.inspection.InspectionQuestionnaireActivity
 import com.caextech.inspector.ui.viewmodels.InspeccionViewModel
-
+import com.caextech.inspector.data.relations.InspeccionConCAEX // Adjust the package name
 /**
  * Fragment for displaying the list of open inspections.
  */
@@ -132,8 +133,39 @@ class OpenInspectionsFragment : Fragment() {
             .setTitle(R.string.create_delivery_inspection)
             .setMessage("Esta inspección está en estado pendiente de cierre. ¿Desea crear una inspección de entrega?")
             .setPositiveButton("Sí, crear") { _, _ ->
-                // Create delivery inspection
-                createDeliveryInspection(recepcionId)
+                // Create delivery inspection directly instead of launching another activity
+                val inspector = "Inspector de Entrega" // Default values
+                val supervisor = "Supervisor de Entrega"
+
+                // Show loading indicator
+                val progressDialog = ProgressDialog(requireContext())
+                progressDialog.setMessage("Creando inspección de entrega...")
+                progressDialog.setCancelable(false)
+                progressDialog.show()
+
+                // Create the inspection
+                inspeccionViewModel.crearInspeccionEntrega(recepcionId, inspector, supervisor)
+
+                // Observe the result
+                inspeccionViewModel.operationStatus.observe(viewLifecycleOwner) { status ->
+                    progressDialog.dismiss()
+
+                    when (status) {
+                        is InspeccionViewModel.OperationStatus.Success -> {
+                            Toast.makeText(requireContext(), status.message, Toast.LENGTH_SHORT).show()
+
+                            // Navigate directly to questionnaire
+                            val intent = Intent(requireContext(), InspectionQuestionnaireActivity::class.java).apply {
+                                putExtra(InspectionQuestionnaireActivity.EXTRA_INSPECCION_ID, status.id)
+                            }
+                            startActivity(intent)
+                        }
+                        is InspeccionViewModel.OperationStatus.Error -> {
+                            Toast.makeText(requireContext(), "Error: ${status.message}", Toast.LENGTH_LONG).show()
+                        }
+                        else -> {}
+                    }
+                }
             }
             .setNegativeButton("No, cancelar", null)
             .show()

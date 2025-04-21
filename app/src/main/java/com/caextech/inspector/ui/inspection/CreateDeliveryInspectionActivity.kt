@@ -2,6 +2,7 @@ package com.caextech.inspector.ui.inspection
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
@@ -89,8 +90,11 @@ class CreateDeliveryInspectionActivity : AppCompatActivity() {
      */
     private fun observeOperationStatus() {
         inspeccionViewModel.operationStatus.observe(this) { status ->
+            Log.d("DeliveryDebug", "Received operation status: $status")
+
             when (status) {
                 is InspeccionViewModel.OperationStatus.Success -> {
+                    Log.d("DeliveryDebug", "Success creating delivery inspection with ID: ${status.id}")
                     Toast.makeText(this, status.message, Toast.LENGTH_SHORT).show()
 
                     // Start questionnaire activity with the new inspection ID
@@ -101,6 +105,7 @@ class CreateDeliveryInspectionActivity : AppCompatActivity() {
                     finish()
                 }
                 is InspeccionViewModel.OperationStatus.Error -> {
+                    Log.e("DeliveryDebug", "Error creating delivery inspection: ${status.message}")
                     binding.createDeliveryButton.isEnabled = true
                     binding.createDeliveryButton.text = getString(R.string.create_delivery_inspection)
                     Toast.makeText(this, "Error: ${status.message}", Toast.LENGTH_LONG).show()
@@ -123,9 +128,14 @@ class CreateDeliveryInspectionActivity : AppCompatActivity() {
         binding.createDeliveryButton.isEnabled = false
         binding.createDeliveryButton.text = "Creando inspección..."
 
+
+
         // Get names from UI
         val inspectorName = binding.inspectorNameEditText.text.toString().trim()
         val supervisorName = binding.supervisorNameEditText.text.toString().trim()
+
+        Log.d("DeliveryDebug", "Creating delivery inspection for reception ID: $inspeccionRecepcionId")
+
 
         // Create delivery inspection
         inspeccionViewModel.crearInspeccionEntrega(
@@ -133,6 +143,7 @@ class CreateDeliveryInspectionActivity : AppCompatActivity() {
             inspectorName,
             supervisorName
         )
+        Log.d("DeliveryDebug", "Called inspeccionViewModel.crearInspeccionEntrega")
     }
 
     /**

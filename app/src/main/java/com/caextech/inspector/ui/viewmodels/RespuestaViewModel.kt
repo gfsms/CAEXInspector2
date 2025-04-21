@@ -344,36 +344,13 @@ class RespuestaViewModel(private val repository: RespuestaRepository) : ViewMode
     }
 
     /**
-     * Obtiene las respuestas "No Conformes" de una inspección de recepción asociada a una inspección de entrega.
-     *
-     * @param inspeccionEntregaId ID de la inspección de entrega
-     * @return LiveData con la lista de respuestas no conformes de la inspección de recepción
+     * Gets the "No Conformes" responses from a reception inspection.
      */
-    fun getRespuestasNoConformesByInspeccionRecepcion(inspeccionEntregaId: Long): LiveData<List<RespuestaConDetalles>> {
-        val result = MutableLiveData<List<RespuestaConDetalles>>()
-        viewModelScope.launch {
-            try {
-                // Primero obtener la inspección de entrega para acceder a su inspeccionRecepcionId
-                val inspeccion = getApplication<CAEXInspectorApp>().database.inspeccionDao()
-                    .getInspeccionById(inspeccionEntregaId)
-
-                if (inspeccion != null && inspeccion.inspeccionRecepcionId != null) {
-                    // Ahora obtener las respuestas no conformes de la inspección de recepción
-                    val respuestasNoConformes = repository.getRespuestasConDetallesByInspeccionYEstado(
-                        inspeccion.inspeccionRecepcionId,
-                        Respuesta.ESTADO_NO_CONFORME
-                    ).firstOrNull() ?: emptyList()
-
-                    result.value = respuestasNoConformes
-                } else {
-                    result.value = emptyList()
-                }
-            } catch (e: Exception) {
-                _operationStatus.value = OperationStatus.Error(e.message ?: "Error al obtener respuestas no conformes")
-                result.value = emptyList()
-            }
-        }
-        return result
+    fun getRespuestasNoConformesByRecepcionId(recepcionId: Long): LiveData<List<RespuestaConDetalles>> {
+        return repository.getRespuestasConDetallesByInspeccionYEstado(
+            recepcionId,
+            Respuesta.ESTADO_NO_CONFORME
+        ).asLiveData()
     }
     /**
      * Carga una respuesta con todos sus detalles por su ID.

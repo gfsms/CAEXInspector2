@@ -1,5 +1,6 @@
 package com.caextech.inspector.ui.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -136,11 +137,7 @@ class InspeccionViewModel(
     }
 
     /**
-     * Crea una nueva inspección de entrega basada en una inspección de recepción.
-     *
-     * @param inspeccionRecepcionId ID de la inspección de recepción
-     * @param nombreInspector Nombre del inspector
-     * @param nombreSupervisor Nombre del supervisor de taller
+     * Creates a delivery inspection linked to a reception inspection.
      */
     fun crearInspeccionEntrega(
         inspeccionRecepcionId: Long,
@@ -148,17 +145,26 @@ class InspeccionViewModel(
         nombreSupervisor: String
     ) = viewModelScope.launch {
         try {
+            // Log for debugging
+            Log.d("DeliveryDebug", "Starting creation in ViewModel")
+
+            // Create the inspection and get its ID
             val inspeccionId = inspeccionRepository.crearInspeccionEntregaDesdeRecepcion(
                 inspeccionRecepcionId,
                 nombreInspector,
                 nombreSupervisor
             )
-            _operationStatus.value = OperationStatus.Success(
+
+            // Important: Update the operation status with the new ID
+            _operationStatus.postValue(OperationStatus.Success(
                 "Inspección de entrega creada correctamente",
                 inspeccionId
-            )
+            ))
+
+            Log.d("DeliveryDebug", "Delivery inspection created with ID: $inspeccionId")
         } catch (e: Exception) {
-            _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
+            Log.e("DeliveryDebug", "Error creating delivery inspection: ${e.message}", e)
+            _operationStatus.postValue(OperationStatus.Error(e.message ?: "Error desconocido"))
         }
     }
     /**
@@ -201,14 +207,12 @@ class InspeccionViewModel(
         return result
     }
 
+
     /**
-     * Obtiene las inspecciones de entrega con sus CAEX asociadas a una inspección de recepción.
-     *
-     * @param recepcionId ID de la inspección de recepción
-     * @return LiveData<List<InspeccionConCAEX>> Lista de inspecciones de entrega
+     * Gets inspections with CAEX by reception inspection ID.
      */
-    fun getInspeccionesEntregaConCAEXByRecepcion(recepcionId: Long): LiveData<List<InspeccionConCAEX>> {
-        return inspeccionRepository.getInspeccionesConCAEXByInspeccionRecepcionId(recepcionId).asLiveData()
+    fun getInspeccionesConCAEXByInspeccionRecepcionId(inspeccionRecepcionId: Long): LiveData<List<InspeccionConCAEX>> {
+        return inspeccionRepository.getInspeccionesConCAEXByInspeccionRecepcionId(inspeccionRecepcionId).asLiveData()
     }
     /**
      * Cierra una inspección.

@@ -252,7 +252,12 @@ class InspeccionRepository(
     ): Flow<List<InspeccionConCAEX>> {
         return inspeccionDao.getInspeccionesConCAEXByModeloEstadoYTipo(modeloCAEX, estado, tipo)
     }
-
+    /**
+     * Gets inspections with CAEX by reception inspection ID.
+     */
+    fun getInspeccionesConCAEXByInspeccionRecepcionId(inspeccionRecepcionId: Long): Flow<List<InspeccionConCAEX>> {
+        return inspeccionDao.getInspeccionesConCAEXByInspeccionRecepcionId(inspeccionRecepcionId)
+    }
     // Obtener una inspección completa por ID
     suspend fun getInspeccionCompletaById(inspeccionId: Long): InspeccionCompleta? {
         return inspeccionDao.getInspeccionCompletaById(inspeccionId)
