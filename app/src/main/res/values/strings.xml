@@ -69,7 +69,12 @@
     <string name="highlight_no_conforme_background">#FFFDE7</string> <!-- Light yellow -->
     <string name="pending_closure_inspection">Inspección en Espera de Cierre</string>
     <string name="continue_delivery_inspection">Continuar a Entrega</string>
-
+    <string name="historial_hallazgos_similares">Historial de Hallazgos Similares</string>
+    <string name="no_hay_hallazgos_previos">No hay hallazgos previos para esta pregunta</string>
+    <string name="ver_historial">Ver historial</string>
+    <string name="usar_este_id_sap">Usar este ID SAP</string>
+    <string name="sap_info_label">SAP:</string>
+    <string name="cerrar">Cerrar</string>
     <!-- Menu options -->
     <string name="action_export_history">Exportar Historial</string>
 </resources>

@@ -22,6 +22,7 @@ import com.caextech.inspector.databinding.ItemNoConformeBinding
  */
 class NoConformeAdapter(
     private val onSapIdUpdated: (Long, String, String) -> Unit,
+    private val onVerHistorialClicked: (RespuestaConDetalles, Long) -> Unit,
     private val isReadOnly: Boolean = false
 ) : ListAdapter<RespuestaConDetalles, NoConformeAdapter.NoConformeViewHolder>(NoConformeDiffCallback()) {
 
@@ -40,7 +41,18 @@ class NoConformeAdapter(
     override fun onBindViewHolder(holder: NoConformeViewHolder, position: Int) {
         holder.bind(getItem(position))
     }
+    fun updateSapInfo(respuestaId: Long, tipoAccion: String, idSap: String) {
+        val currentList = currentList.toMutableList()
+        val position = currentList.indexOfFirst { it.respuesta.respuestaId == respuestaId }
 
+        if (position >= 0) {
+            notifyItemChanged(position)
+
+            // También actualizar el estado interno
+            val holder = findViewHolderForAdapterPosition(position) as? NoConformeViewHolder
+            holder?.updateSapInfo(tipoAccion, idSap)
+        }
+    }
     /**
      * Returns a list of incomplete items (missing action type or SAP ID).
      */
@@ -51,10 +63,11 @@ class NoConformeAdapter(
     inner class NoConformeViewHolder(private val binding: ItemNoConformeBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        private var currentRespuestaId: Long = 0
         private var currentTipoAccion: String = Respuesta.ACCION_INMEDIATO
         private var isUpdating = false  // Bandera para prevenir actualizaciones recursivas
-
+        var currentRespuestaId: Long = 0
+        var currentRespuestaConDetalles: RespuestaConDetalles? = null
+        var caexId: Long = 0
         init {
             // Listeners para selección de modelo
             binding.actionTypeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
@@ -97,7 +110,7 @@ class NoConformeAdapter(
 
         fun bind(respuestaConDetalles: RespuestaConDetalles) {
             currentRespuestaId = respuestaConDetalles.respuesta.respuestaId
-
+            currentRespuestaConDetalles = respuestaConDetalles
             // Set category and question text
             binding.categoryTitleText.text = respuestaConDetalles.pregunta.getCategoriaName()
             binding.questionText.text = respuestaConDetalles.pregunta.texto
@@ -147,6 +160,10 @@ class NoConformeAdapter(
                 binding.photosRecyclerView.visibility = View.VISIBLE
             } else {
                 binding.photosRecyclerView.visibility = View.GONE
+            }
+
+            binding.verHistorialButton.setOnClickListener {
+                onVerHistorialClicked(respuestaConDetalles, caexId)
             }
         }
 
@@ -208,6 +225,20 @@ class NoConformeAdapter(
                 incompleteItems.remove(currentRespuestaId)
                 binding.validationText.visibility = View.GONE
             }
+        }
+        fun updateSapInfo(tipoAccion: String, idSap: String) {
+            isUpdating = true
+
+            when (tipoAccion) {
+                Respuesta.ACCION_INMEDIATO -> binding.radioAviso.isChecked = true
+                Respuesta.ACCION_PROGRAMADO -> binding.radioOT.isChecked = true
+            }
+
+            binding.sapIdEditText.setText(idSap)
+            currentTipoAccion = tipoAccion
+
+            isUpdating = false
+            checkCompleteness()
         }
     }
 

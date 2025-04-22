@@ -123,6 +123,15 @@
             app:layout_constraintTop_toBottomOf="@+id/sapIdLayout"
             tools:text="El ID SAP es obligatorio"
             tools:visibility="visible" />
-
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/verHistorialButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/ver_historial"
+            app:icon="@drawable/ic_history"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/validationText" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

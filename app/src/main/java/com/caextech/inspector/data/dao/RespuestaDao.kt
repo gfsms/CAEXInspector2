@@ -45,6 +45,25 @@ interface RespuestaDao {
     """)
     suspend fun getRespuestaPorInspeccionYPregunta(inspeccionId: Long, preguntaId: Long): Respuesta?
 
+
+    @Transaction
+    @Query("""
+    SELECT r.* FROM respuestas r
+    JOIN inspecciones i ON r.inspeccionId = i.inspeccionId
+    JOIN caex c ON i.caexId = c.caexId
+    WHERE c.caexId = :caexId 
+      AND r.preguntaId = :preguntaId
+      AND r.estado IN (:estados)
+      AND r.inspeccionId != :inspeccionActualId
+    ORDER BY i.fechaCreacion DESC
+""")
+    fun getHistorialRespuestasByCAEXYPregunta(
+        caexId: Long,
+        preguntaId: Long,
+        estados: List<String>,
+        inspeccionActualId: Long
+    ): Flow<List<RespuestaConDetalles>>
+
     @Transaction
     @Query("SELECT * FROM respuestas WHERE respuestaId = :respuestaId")
     suspend fun getRespuestaConDetallesById(respuestaId: Long): RespuestaConDetalles?

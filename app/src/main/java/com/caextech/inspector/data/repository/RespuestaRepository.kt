@@ -466,6 +466,14 @@ class RespuestaRepository(private val respuestaDao: RespuestaDao) {
         }
     }
 
+    fun getHistorialRespuestasNoConformeRechazado(
+        caexId: Long,
+        preguntaId: Long,
+        inspeccionActualId: Long
+    ): Flow<List<RespuestaConDetalles>> {
+        val estados = listOf(Respuesta.ESTADO_NO_CONFORME, Respuesta.ESTADO_RECHAZADO)
+        return respuestaDao.getHistorialRespuestasByCAEXYPregunta(caexId, preguntaId, estados, inspeccionActualId)
+    }
     /**
      * Actualiza una respuesta Rechazada con los detalles completos.
      *
@@ -475,6 +483,8 @@ class RespuestaRepository(private val respuestaDao: RespuestaDao) {
      * @param idAvisoOrdenTrabajo ID del aviso o la orden de trabajo asociada, opcional para RECHAZADO
      * @return true si la actualización fue exitosa, false en caso contrario
      */
+
+
     suspend fun actualizarRespuestaRechazada(
         respuestaId: Long,
         comentarios: String,

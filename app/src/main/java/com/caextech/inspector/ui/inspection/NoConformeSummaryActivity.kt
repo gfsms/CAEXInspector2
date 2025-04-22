@@ -29,12 +29,18 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import android.util.Log
+import com.caextech.inspector.data.entities.CAEX
+import com.caextech.inspector.data.relations.RespuestaConDetalles
+import com.caextech.inspector.ui.fragments.HistorialRespuestasFragment
 
 /**
  * Activity for displaying and finalizing the summary of responses.
  * Handles both reception (No Conforme) and delivery (Rechazado) inspections.
  */
 class NoConformeSummaryActivity : AppCompatActivity() {
+
+    private var respuestaSeleccionadaId: Long = 0
+    private lateinit var caexActual: CAEX
 
     private lateinit var binding: ActivityNoConformeSummaryBinding
 
@@ -121,6 +127,9 @@ class NoConformeSummaryActivity : AppCompatActivity() {
                     updateRespuestaAction(respuestaId, tipoAccion, sapId)
                 }
             },
+            onVerHistorialClicked = { respuestaConDetalles, _ ->
+                showHistorialDialog(respuestaConDetalles)
+            },
             isReadOnly = tipoInspeccion == Inspeccion.TIPO_ENTREGA // Read-only in delivery inspection
         )
 
@@ -143,7 +152,32 @@ class NoConformeSummaryActivity : AppCompatActivity() {
             }
         }
     }
+    private fun showHistorialDialog(respuestaConDetalles: RespuestaConDetalles) {
+        // Guardar referencia
+        respuestaSeleccionadaId = respuestaConDetalles.respuesta.respuestaId
 
+        // Mostrar diálogo
+        val dialog = HistorialRespuestasFragment.newInstance(
+            caexActual.caexId,
+            respuestaConDetalles.pregunta.preguntaId,
+            inspeccionId,
+            respuestaConDetalles.pregunta.texto
+        )
+        dialog.show(supportFragmentManager, "HistorialDialog")
+    }
+
+    override fun onIdSapSelected(tipoAccion: String, idSap: String) {
+        if (respuestaSeleccionadaId > 0 && idSap.isNotEmpty()) {
+            // Actualizar UI
+            noConformeAdapter.updateSapInfo(respuestaSeleccionadaId, tipoAccion, idSap)
+
+            // Guardar en base de datos
+            updateRespuestaAction(respuestaSeleccionadaId, tipoAccion, idSap)
+
+            // Mensaje de éxito
+            Toast.makeText(this, "ID SAP aplicado: $idSap", Toast.LENGTH_SHORT).show()
+        }
+    }
     /**
      * Loads the inspection data and responses.
      */
@@ -151,6 +185,7 @@ class NoConformeSummaryActivity : AppCompatActivity() {
         // Load inspection details
         inspeccionViewModel.getInspeccionConCAEXById(inspeccionId).observe(this) { inspeccionConCAEX ->
             if (inspeccionConCAEX == null) {
+                caexActual = inspeccionConCAEX.caex
                 Toast.makeText(this, "Error: Inspección no encontrada", Toast.LENGTH_SHORT).show()
                 finish()
                 return@observe
