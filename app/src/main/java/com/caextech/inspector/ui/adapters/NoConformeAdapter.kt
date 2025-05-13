@@ -47,10 +47,6 @@ class NoConformeAdapter(
 
         if (position >= 0) {
             notifyItemChanged(position)
-
-            // También actualizar el estado interno
-            val holder = findViewHolderForAdapterPosition(position) as? NoConformeViewHolder
-            holder?.updateSapInfo(tipoAccion, idSap)
         }
     }
     /**
@@ -226,6 +222,7 @@ class NoConformeAdapter(
                 binding.validationText.visibility = View.GONE
             }
         }
+
         fun updateSapInfo(tipoAccion: String, idSap: String) {
             isUpdating = true
 

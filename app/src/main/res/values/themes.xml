@@ -8,4 +8,13 @@
         <!-- Status bar color. -->
         <item name="android:statusBarColor">@color/colorPrimaryDark</item>
     </style>
+
+    <!-- Splash Screen Theme -->
+    <style name="Theme.CAEXInspector.Splash" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/dmh_teal</item>
+        <item name="colorPrimaryDark">@color/dmh_teal_dark</item>
+        <item name="colorAccent">@color/dmh_orange</item>
+        <item name="android:statusBarColor">@color/dmh_teal</item>
+        <item name="android:windowBackground">@color/dmh_teal</item>
+    </style>
 </resources>

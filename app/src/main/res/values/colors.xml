@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- DMH/CODELCO Brand Colors -->
+    <color name="dmh_teal">#16A2B5</color>          <!-- Teal principal -->
+    <color name="dmh_orange">#F4511E</color>         <!-- Naranja-rojizo -->
+    <color name="dmh_red">#C62D42</color>            <!-- Rojo/Bordó -->
+    <color name="dmh_yellow">#FFF3E0</color>         <!-- Amarillo/beige claro -->
+    <color name="dmh_teal_dark">#0E7A89</color>      <!-- Teal oscuro -->
+    <color name="dmh_orange_dark">#D84315</color>    <!-- Naranja oscuro -->
+    <color name="dmh_red_dark">#A21E35</color>       <!-- Rojo oscuro -->
+    <color name="dmh_yellow_dark">#FFE0B2</color>    <!-- Amarillo oscuro -->
+
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
     <color name="purple_700">#FF3700B3</color>

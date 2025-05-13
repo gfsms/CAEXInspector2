@@ -15,11 +15,14 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.caextech.inspector.CAEXInspectorApp
 import com.caextech.inspector.MainActivity
 import com.caextech.inspector.R
+import com.caextech.inspector.data.entities.CAEX
 import com.caextech.inspector.data.entities.Inspeccion
 import com.caextech.inspector.data.entities.Respuesta
+import com.caextech.inspector.data.relations.RespuestaConDetalles
 import com.caextech.inspector.databinding.ActivityNoConformeSummaryBinding
 import com.caextech.inspector.ui.adapters.NoConformeAdapter
 import com.caextech.inspector.ui.adapters.RechazadoAdapter
+import com.caextech.inspector.ui.fragments.HistorialRespuestasFragment
 import com.caextech.inspector.ui.viewmodels.InspeccionViewModel
 import com.caextech.inspector.ui.viewmodels.RespuestaViewModel
 import com.caextech.inspector.utils.PdfGenerator
@@ -29,15 +32,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import android.util.Log
-import com.caextech.inspector.data.entities.CAEX
-import com.caextech.inspector.data.relations.RespuestaConDetalles
-import com.caextech.inspector.ui.fragments.HistorialRespuestasFragment
 
 /**
  * Activity for displaying and finalizing the summary of responses.
  * Handles both reception (No Conforme) and delivery (Rechazado) inspections.
  */
-class NoConformeSummaryActivity : AppCompatActivity() {
+class NoConformeSummaryActivity : AppCompatActivity(), HistorialRespuestasFragment.OnIdSapSelectedListener {
 
     private var respuestaSeleccionadaId: Long = 0
     private lateinit var caexActual: CAEX
@@ -143,6 +143,9 @@ class NoConformeSummaryActivity : AppCompatActivity() {
             rechazadoAdapter = RechazadoAdapter(
                 onSapIdUpdated = { respuestaId, tipoAccion, sapId ->
                     updateRespuestaAction(respuestaId, tipoAccion, sapId)
+                },
+                onVerHistorialClicked = { respuestaConDetalles, _ ->
+                    showHistorialDialog(respuestaConDetalles)
                 }
             )
 
@@ -152,32 +155,7 @@ class NoConformeSummaryActivity : AppCompatActivity() {
             }
         }
     }
-    private fun showHistorialDialog(respuestaConDetalles: RespuestaConDetalles) {
-        // Guardar referencia
-        respuestaSeleccionadaId = respuestaConDetalles.respuesta.respuestaId
 
-        // Mostrar diálogo
-        val dialog = HistorialRespuestasFragment.newInstance(
-            caexActual.caexId,
-            respuestaConDetalles.pregunta.preguntaId,
-            inspeccionId,
-            respuestaConDetalles.pregunta.texto
-        )
-        dialog.show(supportFragmentManager, "HistorialDialog")
-    }
-
-    override fun onIdSapSelected(tipoAccion: String, idSap: String) {
-        if (respuestaSeleccionadaId > 0 && idSap.isNotEmpty()) {
-            // Actualizar UI
-            noConformeAdapter.updateSapInfo(respuestaSeleccionadaId, tipoAccion, idSap)
-
-            // Guardar en base de datos
-            updateRespuestaAction(respuestaSeleccionadaId, tipoAccion, idSap)
-
-            // Mensaje de éxito
-            Toast.makeText(this, "ID SAP aplicado: $idSap", Toast.LENGTH_SHORT).show()
-        }
-    }
     /**
      * Loads the inspection data and responses.
      */
@@ -185,10 +163,25 @@ class NoConformeSummaryActivity : AppCompatActivity() {
         // Load inspection details
         inspeccionViewModel.getInspeccionConCAEXById(inspeccionId).observe(this) { inspeccionConCAEX ->
             if (inspeccionConCAEX == null) {
-                caexActual = inspeccionConCAEX.caex
                 Toast.makeText(this, "Error: Inspección no encontrada", Toast.LENGTH_SHORT).show()
                 finish()
                 return@observe
+            }
+
+            // Store the CAEX for later use
+            caexActual = inspeccionConCAEX.caex
+
+            // Pass the CAEX ID to the adapters' ViewHolders
+            val viewHolders = binding.noConformeRecyclerView.findViewHolderForAdapterPosition(0)
+            if (viewHolders is NoConformeAdapter.NoConformeViewHolder) {
+                viewHolders.caexId = caexActual.caexId
+            }
+
+            if (tipoInspeccion == Inspeccion.TIPO_ENTREGA) {
+                val rechazadoViewHolders = binding.rechazadoRecyclerView.findViewHolderForAdapterPosition(0)
+                if (rechazadoViewHolders is RechazadoAdapter.RechazadoViewHolder) {
+                    rechazadoViewHolders.caexId = caexActual.caexId
+                }
             }
 
             // Set title and adjust UI based on inspection type
@@ -227,6 +220,14 @@ class NoConformeSummaryActivity : AppCompatActivity() {
 
                 // Update summary text
                 binding.summaryText.text = "Total de ítems No Conformes: ${noConformes.size}"
+
+                // Set CAEX ID for all ViewHolders
+                for (i in 0 until binding.noConformeRecyclerView.childCount) {
+                    val viewHolder = binding.noConformeRecyclerView.getChildViewHolder(binding.noConformeRecyclerView.getChildAt(i))
+                    if (viewHolder is NoConformeAdapter.NoConformeViewHolder) {
+                        viewHolder.caexId = caexActual.caexId
+                    }
+                }
             }
         } else {
             // For delivery inspections, load "Rechazado" responses
@@ -239,7 +240,42 @@ class NoConformeSummaryActivity : AppCompatActivity() {
 
                 // Update summary text
                 binding.summaryText.text = "Total de ítems Rechazados: ${rechazados.size}"
+
+                // Set CAEX ID for all ViewHolders
+                for (i in 0 until binding.rechazadoRecyclerView.childCount) {
+                    val viewHolder = binding.rechazadoRecyclerView.getChildViewHolder(binding.rechazadoRecyclerView.getChildAt(i))
+                    if (viewHolder is RechazadoAdapter.RechazadoViewHolder) {
+                        viewHolder.caexId = caexActual.caexId
+                    }
+                }
             }
+        }
+    }
+
+    private fun showHistorialDialog(respuestaConDetalles: RespuestaConDetalles) {
+        // Guardar referencia
+        respuestaSeleccionadaId = respuestaConDetalles.respuesta.respuestaId
+
+        // Mostrar diálogo
+        val dialog = HistorialRespuestasFragment.newInstance(
+            caexActual.caexId,
+            respuestaConDetalles.pregunta.preguntaId,
+            inspeccionId,
+            respuestaConDetalles.pregunta.texto
+        )
+        dialog.show(supportFragmentManager, "HistorialDialog")
+    }
+
+    override fun onIdSapSelected(tipoAccion: String, idSap: String) {
+        if (respuestaSeleccionadaId > 0 && idSap.isNotEmpty()) {
+            // Actualizar UI
+            noConformeAdapter.updateSapInfo(respuestaSeleccionadaId, tipoAccion, idSap)
+
+            // Guardar en base de datos
+            updateRespuestaAction(respuestaSeleccionadaId, tipoAccion, idSap)
+
+            // Mensaje de éxito
+            Toast.makeText(this, "ID SAP aplicado: $idSap", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -253,6 +289,14 @@ class NoConformeSummaryActivity : AppCompatActivity() {
         ).observe(this) { noConformes ->
             // Update adapter with No Conforme responses from reception
             noConformeAdapter.submitList(noConformes)
+
+            // Set CAEX ID for all ViewHolders
+            for (i in 0 until binding.noConformeRecyclerView.childCount) {
+                val viewHolder = binding.noConformeRecyclerView.getChildViewHolder(binding.noConformeRecyclerView.getChildAt(i))
+                if (viewHolder is NoConformeAdapter.NoConformeViewHolder) {
+                    viewHolder.caexId = caexActual.caexId
+                }
+            }
         }
     }
 

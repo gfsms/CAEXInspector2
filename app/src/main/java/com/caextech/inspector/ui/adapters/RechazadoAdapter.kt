@@ -22,9 +22,9 @@ import com.caextech.inspector.databinding.ItemNoConformeBinding
  * Similar to NoConformeAdapter but specifically for delivery inspections.
  */
 class RechazadoAdapter(
-    private val onSapIdUpdated: (Long, String, String) -> Unit
+    private val onSapIdUpdated: (Long, String, String) -> Unit,
+    private val onVerHistorialClicked: (RespuestaConDetalles, Long) -> Unit  // Add this parameter
 ) : ListAdapter<RespuestaConDetalles, RechazadoAdapter.RechazadoViewHolder>(RechazadoDiffCallback()) {
-
     private val incompleteItems = mutableSetOf<Long>()
     private val photoAdapters = mutableMapOf<Long, PhotoThumbnailAdapter>()
 
@@ -54,6 +54,7 @@ class RechazadoAdapter(
         private var currentRespuestaId: Long = 0
         private var currentTipoAccion: String = Respuesta.ACCION_INMEDIATO
         private var isUpdating = false  // Flag to prevent recursive updates
+        var caexId: Long = 0  // Add this field
 
         init {
             // Listeners for action type selection
@@ -90,6 +91,14 @@ class RechazadoAdapter(
                 }
                 false
             }
+            binding.verHistorialButton.setOnClickListener {
+                val position = adapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    val item = getItem(position)
+                    onVerHistorialClicked(item, caexId)
+                }
+            }
+
         }
 
         fun bind(respuestaConDetalles: RespuestaConDetalles) {
