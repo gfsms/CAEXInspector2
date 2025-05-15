@@ -14,58 +14,136 @@
         android:layout_height="wrap_content"
         android:padding="16dp">
 
+        <!-- Header Section -->
         <TextView
             android:id="@+id/caexNumberText"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textSize="18sp"
             android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/statusIndicator"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             tools:text="CAEX 797F #301" />
 
-        <TextView
-            android:id="@+id/modelLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/model_label"
-            android:textStyle="bold"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/caexNumberText" />
+        <!-- Status Indicator -->
+        <ImageView
+            android:id="@+id/statusIndicator"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="8dp"
+            app:layout_constraintEnd_toStartOf="@id/actionButton"
+            app:layout_constraintTop_toTopOf="@id/caexNumberText"
+            app:layout_constraintBottom_toBottomOf="@id/caexNumberText"
+            tools:src="@android:drawable/ic_dialog_info" />
 
-        <TextView
-            android:id="@+id/modelText"
+        <!-- Action Button -->
+        <ImageButton
+            android:id="@+id/actionButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_add"
+            android:contentDescription="Crear inspección"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/caexNumberText"
+            app:layout_constraintBottom_toBottomOf="@id/caexNumberText" />
+
+        <!-- Basic Info Section -->
+        <LinearLayout
+            android:id="@+id/basicInfoSection"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            app:layout_constraintBottom_toBottomOf="@+id/modelLabel"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/modelLabel"
-            app:layout_constraintTop_toTopOf="@+id/modelLabel"
-            tools:text="797F" />
-
-        <TextView
-            android:id="@+id/registeredDateLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/registered_date_label"
-            android:textStyle="bold"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/modelLabel" />
+            app:layout_constraintTop_toBottomOf="@id/caexNumberText">
 
-        <TextView
-            android:id="@+id/registeredDateText"
+            <TextView
+                android:id="@+id/modelLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Modelo:"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/modelText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:textSize="14sp"
+                tools:text="797F" />
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:textSize="12sp"
+                android:textColor="@color/status_conforme"
+                tools:text="Operativo" />
+
+        </LinearLayout>
+
+        <!-- Inspection Stats Section -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/inspectionStatsSection"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            app:layout_constraintBottom_toBottomOf="@+id/registeredDateLabel"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/inspection_stats_background"
+            android:padding="8dp"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/registeredDateLabel"
-            app:layout_constraintTop_toTopOf="@+id/registeredDateLabel"
-            tools:text="01/01/2025" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/basicInfoSection">
+
+            <TextView
+                android:id="@+id/totalInspectionsLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Total:"
+                android:textSize="12sp"
+                android:textColor="@android:color/black"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/totalInspectionsText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:textStyle="bold"
+                android:textSize="12sp"
+                app:layout_constraintStart_toEndOf="@id/totalInspectionsLabel"
+                app:layout_constraintTop_toTopOf="parent"
+                tools:text="15" />
+
+            <TextView
+                android:id="@+id/lastInspectionLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="Última:"
+                android:textSize="12sp"
+                android:textColor="@android:color/black"
+                app:layout_constraintStart_toEndOf="@id/totalInspectionsText"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/lastInspectionText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:textSize="12sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@id/lastInspectionLabel"
+                app:layout_constraintTop_toTopOf="parent"
+                tools:text="15/01/2024 - Entrega" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>
