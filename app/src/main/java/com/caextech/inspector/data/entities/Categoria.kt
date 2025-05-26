@@ -43,5 +43,6 @@ data class Categoria(
         const val SUSPENSIONES_TRASERAS = "Suspensiones traseras"
         const val SISTEMA_ESTRUCTURAL = "Sistema estructural"
         const val SISTEMA_ELECTRICO = "Sistema eléctrico"
+        const val SISTEMA_ENFRIAMIENTO = "Sistema de Enfriamiento"
     }
 }

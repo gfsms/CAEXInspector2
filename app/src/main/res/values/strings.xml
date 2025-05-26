@@ -77,4 +77,6 @@
     <string name="cerrar">Cerrar</string>
     <!-- Menu options -->
     <string name="action_export_history">Exportar Historial</string>
+    <string name="versi_n_0_1">Versión 0.1</string>
+    <string name="versi_n_1_0">Versión 1.0</string>
 </resources>
