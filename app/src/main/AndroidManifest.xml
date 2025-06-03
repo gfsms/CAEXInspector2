@@ -17,6 +17,10 @@
     <!-- Permisos para Android 13+ -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
+    <!-- Permiso para Android 11+ para gestionar todos los archivos -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        android:minSdkVersion="30" />
+
     <application
         android:name=".CAEXInspectorApp"
         android:allowBackup="true"
@@ -74,6 +78,25 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Actividad de respaldo y restauración -->
+        <activity
+            android:name=".ui.backup.BackupRestoreActivity"
+            android:exported="false"
+            android:label="@string/backup_restore_title"
+            android:parentActivityName=".MainActivity" />
+
+        <!-- FileProvider para compartir archivos -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 
 </manifest>

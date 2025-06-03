@@ -14,6 +14,8 @@ import com.caextech.inspector.ui.viewmodels.CAEXViewModel
 import com.caextech.inspector.ui.viewmodels.CategoriaPreguntaViewModel
 import com.caextech.inspector.ui.viewmodels.InspeccionViewModel
 import com.google.android.material.tabs.TabLayoutMediator
+import com.caextech.inspector.R
+import com.caextech.inspector.ui.backup.BackupRestoreActivity
 
 /**
  * Main activity for the CAEX Inspection application.
@@ -182,9 +184,10 @@ class MainActivity : AppCompatActivity() {
      */
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-            R.id.action_export_historial -> {
-                // Generate history PDF
-                Toast.makeText(this, "Exportar historial en desarrollo", Toast.LENGTH_SHORT).show()
+            R.id.action_backup_restore -> {
+                // Launch backup and restore activity
+                val intent = Intent(this, BackupRestoreActivity::class.java)
+                startActivity(intent)
                 true
             }
             else -> super.onOptionsItemSelected(item)

@@ -79,4 +79,24 @@
     <string name="action_export_history">Exportar Historial</string>
     <string name="versi_n_0_1">Versión 0.1</string>
     <string name="versi_n_1_0">Versión 1.0</string>
+
+    <!-- Backup and Restore -->
+    <string name="action_backup_restore">Respaldo de Datos</string>
+    <string name="backup_restore_title">Respaldo y Restauración</string>
+    <string name="export_data">Exportar Datos</string>
+    <string name="import_data">Importar Datos</string>
+    <string name="export_description">Crear un respaldo completo de todos los datos e imágenes</string>
+    <string name="import_description">Restaurar datos desde un archivo de respaldo</string>
+    <string name="exporting_data">Exportando datos...</string>
+    <string name="importing_data">Importando datos...</string>
+    <string name="backup_success">Respaldo creado exitosamente en: %s</string>
+    <string name="restore_success">Datos restaurados exitosamente</string>
+    <string name="backup_error">Error al crear respaldo: %s</string>
+    <string name="restore_error">Error al restaurar datos: %s</string>
+    <string name="select_backup_file">Seleccionar archivo de respaldo</string>
+    <string name="invalid_backup_file">Archivo de respaldo inválido</string>
+    <string name="backup_version_mismatch">Versión del respaldo no compatible</string>
+    <string name="confirm_import">¿Está seguro de importar? Esto reemplazará todos los datos actuales.</string>
+    <string name="confirm">Confirmar</string>
+
 </resources>
