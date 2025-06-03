@@ -272,7 +272,8 @@ object BackupUtils {
      */
     private fun createZipFile(sourceDir: File, outputFile: File) {
         ZipOutputStream(BufferedOutputStream(FileOutputStream(outputFile))).use { zipOut ->
-            sourceDir.walkTopDown().forEach { file ->
+            sourceDir.walkTopDown().filter { it.relativeTo(sourceDir).path.isNotEmpty() }
+                .forEach { file ->
                 // Calcular la ruta relativa
                 val relativePath = file.relativeTo(sourceDir).path
 
@@ -332,6 +333,7 @@ object BackupUtils {
             }
 
             try {
+                logZipEntries(context, zipUri)
                 // Paso 1: Extraer ZIP
                 progressCallback("Extrayendo archivo de respaldo...")
                 extractZipFile(context, zipUri, tempDir)
@@ -400,51 +402,54 @@ object BackupUtils {
             Logger.d("BackupUtils", "Iniciando extracción de ZIP desde URI: $zipUri")
 
             context.contentResolver.openInputStream(zipUri)?.use { inputStream ->
-                Logger.d("BackupUtils", "InputStream abierto correctamente")
-
                 ZipInputStream(BufferedInputStream(inputStream)).use { zipIn ->
-                    var entry: ZipEntry? = zipIn.nextEntry
-                    var fileCount = 0
+                    var entry: ZipEntry? = try {
+                        zipIn.nextEntry
+                    } catch (e: Exception) {
+                        Logger.w("BackupUtils", "Error en primera entrada, continuando...")
+                        null
+                    }
 
                     while (entry != null) {
-                        val entryName = entry.name
-                        Logger.d("BackupUtils", "Procesando entrada: '$entryName'")
+                        try {
+                            val entryName = entry.name.trim('/')
 
-                        // Validar y limpiar el nombre de la entrada
-                        val cleanName = entryName.trim('/')
-                        if (cleanName.isEmpty()) {
-                            Logger.w("BackupUtils", "Saltando entrada vacía o raíz")
-                            zipIn.closeEntry()
-                            entry = zipIn.nextEntry
-                            continue
-                        }
-
-                        val file = File(outputDir, cleanName)
-
-                        if (entry.isDirectory) {
-                            if (!file.exists()) {
-                                file.mkdirs()
+                            // Saltar entradas vacías o raíz
+                            if (entryName.isEmpty()) {
+                                Logger.w("BackupUtils", "Saltando entrada vacía: ${entry.name}")
+                                zipIn.closeEntry()
+                                entry = try {
+                                    zipIn.nextEntry
+                                } catch (e: Exception) {
+                                    Logger.w("BackupUtils", "Error en entrada, continuando...")
+                                    null
+                                }
+                                continue
                             }
-                        } else {
-                            // Asegurar que el directorio padre existe
-                            file.parentFile?.mkdirs()
 
-                            // Escribir el archivo
-                            try {
+                            val file = File(outputDir, entryName)
+                            Logger.d("BackupUtils", "Procesando entrada: '$entryName' -> ${file.absolutePath}")
+
+                            if (entry.isDirectory) {
+                                file.mkdirs()
+                            } else {
+                                file.parentFile?.mkdirs()
                                 file.outputStream().use { output ->
                                     zipIn.copyTo(output)
                                 }
-                                fileCount++
+                            }
+                        } catch (e: Exception) {
+                            Logger.e("BackupUtils", "Error procesando entrada: ${entry?.name}", e)
+                        } finally {
+                            zipIn.closeEntry()
+                            entry = try {
+                                zipIn.nextEntry
                             } catch (e: Exception) {
-                                Logger.e("BackupUtils", "Error al escribir archivo: ${file.name}", e)
+                                Logger.w("BackupUtils", "Error obteniendo siguiente entrada")
+                                null
                             }
                         }
-
-                        zipIn.closeEntry()
-                        entry = zipIn.nextEntry
                     }
-
-                    Logger.d("BackupUtils", "Extracción completada. Archivos extraídos: $fileCount")
                 }
             } ?: throw IOException("No se pudo abrir el archivo ZIP")
         } catch (e: Exception) {
@@ -452,7 +457,6 @@ object BackupUtils {
             throw e
         }
     }
-
     /**
      * Importa los datos desde el archivo JSON a la base de datos.
      *
@@ -850,4 +854,20 @@ object BackupUtils {
         descripcion = json.getString("descripcion"),
         fechaCreacion = json.getLong("fechaCreacion")
     )
+    private fun logZipEntries(context: Context, zipUri: Uri) {
+        try {
+            context.contentResolver.openInputStream(zipUri)?.use { inputStream ->
+                val zipIn = ZipInputStream(BufferedInputStream(inputStream))
+                var entry: ZipEntry? = zipIn.nextEntry
+
+                while (entry != null) {
+                    Logger.d("ZipDebug", "Entry: ${entry.name} | Size: ${entry.size} | Directory: ${entry.isDirectory}")
+                    zipIn.closeEntry()
+                    entry = zipIn.nextEntry
+                }
+            }
+        } catch (e: Exception) {
+            Logger.e("ZipDebug", "Error al leer entradas ZIP", e)
+        }
+    }
 }

@@ -131,107 +131,108 @@ class BackupRestoreViewModel(
             }
         }
     }
-}
 
-/**
- * Importa datos desde un archivo ZIP de respaldo.
- *
- * El proceso incluye:
- * 1. Validar el archivo ZIP
- * 2. Extraer y validar metadatos
- * 3. Verificar compatibilidad de versión
- * 4. Limpiar datos existentes (si replaceAll es true)
- * 5. Importar nuevos datos a la base de datos
- * 6. Restaurar fotografías con rutas correctas
- *
- * @param fileUri URI del archivo ZIP seleccionado por el usuario
- * @param replaceAll Si es true, reemplaza todos los datos. Si es false, combina con existentes
- */
-fun importData(fileUri: Uri, replaceAll: Boolean = true) {
-    viewModelScope.launch(Dispatchers.IO) {
-        try {
-            // Cambiar estado a "en progreso"
-            updateState(OperationState.InProgress("Preparando importación..."))
 
-            // Actualizar progreso
-            withContext(Dispatchers.Main) {
-                _progressMessage.value = "Validando archivo de respaldo..."
-            }
+    /**
+     * Importa datos desde un archivo ZIP de respaldo.
+     *
+     * El proceso incluye:
+     * 1. Validar el archivo ZIP
+     * 2. Extraer y validar metadatos
+     * 3. Verificar compatibilidad de versión
+     * 4. Limpiar datos existentes (si replaceAll es true)
+     * 5. Importar nuevos datos a la base de datos
+     * 6. Restaurar fotografías con rutas correctas
+     *
+     * @param fileUri URI del archivo ZIP seleccionado por el usuario
+     * @param replaceAll Si es true, reemplaza todos los datos. Si es false, combina con existentes
+     */
+    fun importData(fileUri: Uri, replaceAll: Boolean = true) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // Cambiar estado a "en progreso"
+                updateState(OperationState.InProgress("Preparando importación..."))
 
-            // Realizar la importación usando nuestra utilidad
-            val success = BackupUtils.importFromZip(
-                context = getApplication(),
-                database = database,
-                zipUri = fileUri,
-                replaceAll = replaceAll
-            ) { progress ->
-                // Callback de progreso - necesitamos lanzar una corrutina para actualizar
-                viewModelScope.launch(Dispatchers.Main) {
-                    _progressMessage.value = progress
+                // Actualizar progreso
+                withContext(Dispatchers.Main) {
+                    _progressMessage.value = "Validando archivo de respaldo..."
                 }
+
+                // Realizar la importación usando nuestra utilidad
+                val success = BackupUtils.importFromZip(
+                    context = getApplication(),
+                    database = database,
+                    zipUri = fileUri,
+                    replaceAll = replaceAll
+                ) { progress ->
+                    // Callback de progreso - necesitamos lanzar una corrutina para actualizar
+                    viewModelScope.launch(Dispatchers.Main) {
+                        _progressMessage.value = progress
+                    }
+                }
+
+                if (success) {
+                    // Importación exitosa
+                    updateState(
+                        OperationState.Success("Datos restaurados exitosamente")
+                    )
+                } else {
+                    // Error en la importación
+                    updateState(
+                        OperationState.Error("Error al restaurar los datos")
+                    )
+                }
+
+            } catch (e: Exception) {
+                // Manejar cualquier excepción no capturada
+                e.printStackTrace()
+                Log.e("BackupRestore", "Error en exportación", e)
+
+                val errorMessage = when (e) {
+                    is IOException -> "Error de archivo: ${e.message}"
+                    is SecurityException -> "Error de permisos: ${e.message}"
+                    else -> "Error: ${e.javaClass.simpleName} - ${e.message ?: "Sin detalles"}"
+                }
+
+                updateState(OperationState.Error(errorMessage))
             }
-
-            if (success) {
-                // Importación exitosa
-                updateState(
-                    OperationState.Success("Datos restaurados exitosamente")
-                )
-            } else {
-                // Error en la importación
-                updateState(
-                    OperationState.Error("Error al restaurar los datos")
-                )
-            }
-
-        } catch (e: Exception) {
-            // Manejar cualquier excepción no capturada
-            e.printStackTrace()
-            Log.e("BackupRestore", "Error en exportación", e)
-
-            val errorMessage = when (e) {
-                is IOException -> "Error de archivo: ${e.message}"
-                is SecurityException -> "Error de permisos: ${e.message}"
-                else -> "Error: ${e.javaClass.simpleName} - ${e.message ?: "Sin detalles"}"
-            }
-
-            updateState(OperationState.Error(errorMessage))
         }
     }
-}
 
 
-/**
- * Actualiza el estado de la operación en el thread principal
- */
-private suspend fun updateState(state: OperationState) {
-    withContext(Dispatchers.Main) {
-        _operationState.value = state
-    }
-}
-
-/**
- * Estados posibles de una operación de respaldo/restauración
- */
-sealed class OperationState {
-    object Idle : OperationState()
-    data class InProgress(val message: String) : OperationState()
-    data class Success(val message: String, val filePath: String? = null) : OperationState()
-    data class Error(val message: String) : OperationState()
-}
-
-/**
- * Factory para crear instancias del ViewModel con las dependencias necesarias
- */
-class BackupRestoreViewModelFactory(
-    private val database: AppDatabase,
-    private val fotoRepository: FotoRepository,
-    private val application: Application
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(BackupRestoreViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return BackupRestoreViewModel(database, fotoRepository, application) as T
+    /**
+     * Actualiza el estado de la operación en el thread principal
+     */
+    private suspend fun updateState(state: OperationState) {
+        withContext(Dispatchers.Main) {
+            _operationState.value = state
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+
+    /**
+     * Estados posibles de una operación de respaldo/restauración
+     */
+    sealed class OperationState {
+        object Idle : OperationState()
+        data class InProgress(val message: String) : OperationState()
+        data class Success(val message: String, val filePath: String? = null) : OperationState()
+        data class Error(val message: String) : OperationState()
+    }
+
+    /**
+     * Factory para crear instancias del ViewModel con las dependencias necesarias
+     */
+    class BackupRestoreViewModelFactory(
+        private val database: AppDatabase,
+        private val fotoRepository: FotoRepository,
+        private val application: Application
+    ) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(BackupRestoreViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return BackupRestoreViewModel(database, fotoRepository, application) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
     }
 }

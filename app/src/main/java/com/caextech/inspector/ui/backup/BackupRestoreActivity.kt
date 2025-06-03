@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.view.MenuItem
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -20,6 +21,7 @@ import com.caextech.inspector.databinding.ActivityBackupRestoreBinding
 import com.caextech.inspector.ui.viewmodels.BackupRestoreViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import com.caextech.inspector.ui.viewmodels.BackupRestoreViewModel.OperationState.*
 
 /**
  * Actividad para gestionar el respaldo y restauración de datos.
@@ -114,38 +116,30 @@ class BackupRestoreActivity : AppCompatActivity() {
      * Observa los cambios en el ViewModel para actualizar la UI
      */
     private fun observeViewModel() {
-        // Observar el estado de la operación
         viewModel.operationState.observe(this) { state ->
             when (state) {
-                is BackupRestoreViewModel.OperationState.Idle -> {
-                    // Estado inicial, habilitar botones
+                is Idle -> {
                     setUIEnabled(true)
-                    binding.progressBar.visibility = android.view.View.GONE
+                    binding.progressBar.visibility = View.GONE
+                    binding.progressText.text = ""
                 }
-                is BackupRestoreViewModel.OperationState.InProgress -> {
-                    // Operación en progreso, deshabilitar UI y mostrar progreso
+                is InProgress -> {
                     setUIEnabled(false)
-                    binding.progressBar.visibility = android.view.View.VISIBLE
+                    binding.progressBar.visibility = View.VISIBLE
                     binding.progressText.text = state.message
                 }
-                is BackupRestoreViewModel.OperationState.Success -> {
-                    // Operación exitosa
+                is Success -> {
                     setUIEnabled(true)
-                    binding.progressBar.visibility = android.view.View.GONE
-
-                    // Mostrar mensaje de éxito con la ruta del archivo si es exportación
+                    binding.progressBar.visibility = View.GONE
                     if (state.filePath != null) {
                         showSuccessDialog(state.message, state.filePath)
                     } else {
                         Snackbar.make(binding.root, state.message, Snackbar.LENGTH_LONG).show()
                     }
                 }
-                is BackupRestoreViewModel.OperationState.Error -> {
-                    // Error en la operación
+                is Error -> {
                     setUIEnabled(true)
-                    binding.progressBar.visibility = android.view.View.GONE
-
-                    // Mostrar diálogo de error
+                    binding.progressBar.visibility = View.GONE
                     MaterialAlertDialogBuilder(this)
                         .setTitle("Error")
                         .setMessage(state.message)
