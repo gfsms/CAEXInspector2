@@ -67,7 +67,11 @@
             android:exported="false"
             android:label="Resumen No Conformes"
             android:parentActivityName=".ui.inspection.InspectionQuestionnaireActivity" />
-
+        <activity
+            android:name=".ui.equipment.EquipmentHistoryActivity"
+            android:exported="false"
+            android:label="Historial de Equipo"
+            android:parentActivityName=".MainActivity" />
         <!-- FileProvider para compartir archivos -->
         <provider
             android:name="androidx.core.content.FileProvider"

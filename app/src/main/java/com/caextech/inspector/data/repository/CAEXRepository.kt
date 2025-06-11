@@ -7,6 +7,9 @@ import com.caextech.inspector.data.entities.Inspeccion
 import com.caextech.inspector.data.models.CAEXConInfo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOn
 
 /**
  * Repositorio para operaciones relacionadas con los equipos CAEX.
@@ -23,13 +26,44 @@ class CAEXRepository(
     val allCAEX: Flow<List<CAEX>> = caexDao.getAllCAEX()
 
     // Obtener todos los CAEX con información de inspecciones
-    val allCAEXWithInfo: Flow<List<CAEXConInfo>> =
-        caexDao.getAllCAEX().combine(inspeccionDao.getAllInspecciones()) { caexList, inspeccionesList ->
-            caexList.map { caex ->
-                val inspecciones = inspeccionesList.filter { it.caexId == caex.caexId }
-                createCAEXConInfo(caex, inspecciones)
+    val allCAEXWithInfo: Flow<List<CAEXConInfo>> = combine(
+        caexDao.getAllCAEX(),
+        inspeccionDao.getAllInspeccionesConCAEX()
+    ) { caexList, inspecciones ->
+        // Obtener estadísticas de conformidad para todos los CAEX
+        val estadisticasConformidad = caexDao.getAllEstadisticasConformidad()
+        val estadisticasMap = estadisticasConformidad.associateBy { it.caexId }
+
+        caexList.map { caex ->
+            // Obtener inspecciones para este CAEX
+            val inspeccionesCAEX = inspecciones.filter { it.inspeccion.caexId == caex.caexId }
+
+            // Información básica existente
+            val totalInspecciones = inspeccionesCAEX.size
+            val ultimaInspeccion = inspeccionesCAEX.maxByOrNull { it.inspeccion.fechaCreacion }
+            val tieneInspeccionPendiente = inspeccionesCAEX.any {
+                it.inspeccion.estado == Inspeccion.ESTADO_ABIERTA
             }
+
+            // Estadísticas de conformidad
+            val stats = estadisticasMap[caex.caexId]
+            val totalHallazgos = stats?.totalHallazgos ?: 0
+            val totalRespuestas = stats?.totalRespuestas ?: 0
+            val porcentajeConformidad = stats?.getPorcentajeConformidad() ?: 100f
+
+            CAEXConInfo(
+                caex = caex,
+                totalInspecciones = totalInspecciones,
+                fechaUltimaInspeccion = ultimaInspeccion?.inspeccion?.fechaCreacion,
+                tipoUltimaInspeccion = ultimaInspeccion?.inspeccion?.tipo,
+                estadoUltimaInspeccion = ultimaInspeccion?.inspeccion?.estado,
+                tieneInspeccionPendiente = tieneInspeccionPendiente,
+                totalHallazgos = totalHallazgos,
+                totalRespuestas = totalRespuestas,
+                porcentajeConformidad = porcentajeConformidad
+            )
         }
+    }.flowOn(Dispatchers.IO)
 
     /**
      * Busca CAEX por texto (número o modelo)

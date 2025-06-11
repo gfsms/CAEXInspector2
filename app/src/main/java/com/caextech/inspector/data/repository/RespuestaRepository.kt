@@ -4,7 +4,6 @@ import com.caextech.inspector.data.dao.RespuestaDao
 import com.caextech.inspector.data.entities.Respuesta
 import com.caextech.inspector.data.relations.RespuestaConDetalles
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 /**
@@ -34,7 +33,12 @@ class RespuestaRepository(private val respuestaDao: RespuestaDao) {
     fun getRespuestasConDetallesByInspeccion(inspeccionId: Long): Flow<List<RespuestaConDetalles>> {
         return respuestaDao.getRespuestasConDetallesByInspeccion(inspeccionId)
     }
-
+    /**
+     * Obtiene historial de hallazgos (No Conforme/Rechazado) para un CAEX ordenado por fecha
+     */
+    fun getHistorialHallazgosByCAEX(caexId: Long): Flow<List<RespuestaConDetalles>> {
+        return respuestaDao.getHistorialHallazgosByCAEX(caexId)
+    }
     /**
      * Obtiene todas las respuestas con sus detalles para una inspección, ordenadas por categoría y orden.
      *

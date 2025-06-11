@@ -41,4 +41,51 @@ interface CAEXDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM caex WHERE numeroIdentificador = :numeroIdentificador LIMIT 1)")
     suspend fun existeCAEXConNumeroIdentificador(numeroIdentificador: Int): Boolean
+
+    /**
+     * Obtiene estadísticas de conformidad para un CAEX específico
+     */
+    @Query("""
+    SELECT 
+        :caexId as caexId,
+        COUNT(DISTINCT r.respuestaId) as totalRespuestas,
+        COUNT(CASE WHEN r.estado IN ('NO_CONFORME', 'RECHAZADO') THEN r.respuestaId END) as totalHallazgos
+    FROM respuestas r
+    JOIN inspecciones i ON r.inspeccionId = i.inspeccionId  
+    WHERE i.caexId = :caexId AND i.estado = 'CERRADA'
+""")
+    suspend fun getEstadisticasConformidadCAEX(caexId: Long): ConformidadStats?
+
+    /**
+     * Obtiene estadísticas de conformidad para todos los CAEX
+     */
+    @Query("""
+    SELECT 
+        i.caexId,
+        COUNT(DISTINCT r.respuestaId) as totalRespuestas,
+        COUNT(CASE WHEN r.estado IN ('NO_CONFORME', 'RECHAZADO') THEN r.respuestaId END) as totalHallazgos
+    FROM respuestas r
+    JOIN inspecciones i ON r.inspeccionId = i.inspeccionId  
+    WHERE i.estado = 'CERRADA'
+    GROUP BY i.caexId
+""")
+    suspend fun getAllEstadisticasConformidad(): List<ConformidadStats>
+
+    /**
+     * Data class para las estadísticas de conformidad
+     * AGREGAR esta data class al archivo CAEXDao.kt:
+     */
+    data class ConformidadStats(
+        val caexId: Long = 0,
+        val totalRespuestas: Int = 0,
+        val totalHallazgos: Int = 0
+    ) {
+        fun getPorcentajeConformidad(): Float {
+            return if (totalRespuestas > 0) {
+                ((totalRespuestas - totalHallazgos).toFloat() / totalRespuestas) * 100f
+            } else {
+                100f
+            }
+        }
+    }
 }

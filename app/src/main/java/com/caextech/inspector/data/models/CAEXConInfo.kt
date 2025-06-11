@@ -11,7 +11,11 @@ data class CAEXConInfo(
     val fechaUltimaInspeccion: Long? = null,
     val tipoUltimaInspeccion: String? = null,
     val estadoUltimaInspeccion: String? = null,
-    val tieneInspeccionPendiente: Boolean = false
+    val tieneInspeccionPendiente: Boolean = false,
+    val totalHallazgos: Int = 0,                    // Total No Conforme + Rechazado
+    val totalRespuestas: Int = 0,                   // Total respuestas en todas las inspecciones
+    val porcentajeConformidad: Float = 100f         // (respuestas conformes / total) * 100
+
 ) {
     /**
      * Determina el estado actual del equipo
@@ -26,7 +30,32 @@ data class CAEXConInfo(
             else -> EstadoEquipo.DESCONOCIDO
         }
     }
-
+    /**
+     * Obtiene el porcentaje de conformidad redondeado
+     */
+    fun getPorcentajeConformidadRedondeado(): Int {
+        return porcentajeConformidad.toInt()
+    }
+    /**
+     * Obtiene el texto descriptivo de hallazgos
+     */
+    fun getResumenHallazgos(): String {
+        return when {
+            totalHallazgos == 0 -> "Sin hallazgos"
+            totalHallazgos == 1 -> "1 hallazgo histórico"
+            else -> "$totalHallazgos hallazgos históricos"
+        }
+    }
+    /**
+     * Obtiene el color para la barra de progreso según conformidad
+     */
+    fun getColorConformidad(): Int {
+        return when {
+            porcentajeConformidad >= 95f -> com.caextech.inspector.R.color.status_conforme
+            porcentajeConformidad >= 80f -> com.caextech.inspector.R.color.status_pending
+            else -> com.caextech.inspector.R.color.status_no_conforme
+        }
+    }
     /**
      * Obtiene la descripción del estado para mostrar en la UI
      */

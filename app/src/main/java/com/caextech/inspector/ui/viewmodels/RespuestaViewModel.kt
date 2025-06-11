@@ -123,6 +123,10 @@ class RespuestaViewModel(private val repository: RespuestaRepository) : ViewMode
     ): LiveData<List<RespuestaConDetalles>> {
         return repository.getHistorialRespuestasNoConformeRechazado(caexId, preguntaId, inspeccionActualId).asLiveData()
     }
+
+    fun getHistorialHallazgosByCAEX(caexId: Long): LiveData<List<RespuestaConDetalles>> {
+        return repository.getHistorialHallazgosByCAEX(caexId).asLiveData()
+    }
     /**
      * Guarda una respuesta "Conforme" para una pregunta en una inspección.
      *

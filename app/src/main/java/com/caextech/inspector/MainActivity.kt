@@ -111,18 +111,8 @@ class MainActivity : AppCompatActivity() {
      */
     private fun setupFloatingActionButton() {
         binding.addFab.setOnClickListener {
-            // The behavior depends on the current tab
-            when (binding.viewPager.currentItem) {
-                MainViewPagerAdapter.TAB_CAEX -> {
-                    // Add new CAEX
-                    showAddCAEXDialog()
-                }
-                MainViewPagerAdapter.TAB_OPEN_INSPECTIONS,
-                MainViewPagerAdapter.TAB_CLOSED_INSPECTIONS -> {
-                    // Create new inspection
-                    showCreateInspectionDialog()
-                }
-            }
+            // Solo crear inspecciones, ya no maneja equipos
+            showCreateInspectionDialog()
         }
 
         // Update FAB behavior when tabs change
@@ -141,16 +131,18 @@ class MainActivity : AppCompatActivity() {
      * Updates the FAB icon and behavior based on the selected tab.
      */
     private fun updateFabForTab(tabPosition: Int) {
-        // You can customize FAB appearance and behavior for each tab
-        binding.addFab.contentDescription = when (tabPosition) {
-            MainViewPagerAdapter.TAB_CAEX -> "Agregar nuevo CAEX"
+        when (tabPosition) {
+            MainViewPagerAdapter.TAB_CAEX -> {
+                // Ocultar FAB en tab de Equipos
+                binding.addFab.hide()
+            }
             MainViewPagerAdapter.TAB_OPEN_INSPECTIONS,
-            MainViewPagerAdapter.TAB_CLOSED_INSPECTIONS -> "Crear nueva inspección"
-            else -> "Agregar"
+            MainViewPagerAdapter.TAB_CLOSED_INSPECTIONS -> {
+                // Mostrar FAB en tabs de inspecciones
+                binding.addFab.show()
+                binding.addFab.contentDescription = "Crear nueva inspección"
+            }
         }
-
-        // Could also change icon if desired:
-        // binding.addFab.setImageResource(R.drawable.some_icon)
     }
 
     /**

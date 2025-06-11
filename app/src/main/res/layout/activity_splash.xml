@@ -7,11 +7,6 @@
     android:layout_height="match_parent"
     android:background="@drawable/bg_gradient">
 
-    <!-- DMH logo at top -->
-    <!-- If you put dmh_logo.png in drawable-nodpi/, change src to:
-         android:src="@drawable/dmh_logo" (this will use the PNG)
-         Comment out or delete the dmh_logo.xml file -->
-
     <!-- Splash animation container -->
 
     <ImageView

@@ -101,4 +101,18 @@ interface RespuestaDao {
 
     @Query("DELETE FROM respuestas WHERE inspeccionId = :inspeccionId")
     suspend fun deleteRespuestasByInspeccion(inspeccionId: Long)
+
+    /**
+     * Obtiene historial de hallazgos (No Conforme/Rechazado) para un CAEX específico
+     */
+    @Transaction
+    @Query("""
+    SELECT r.* FROM respuestas r
+    JOIN inspecciones i ON r.inspeccionId = i.inspeccionId
+    WHERE i.caexId = :caexId 
+      AND r.estado IN ('NO_CONFORME', 'RECHAZADO')
+      AND i.estado = 'CERRADA'
+    ORDER BY r.fechaCreacion DESC
+""")
+    fun getHistorialHallazgosByCAEX(caexId: Long): Flow<List<RespuestaConDetalles>>
 }

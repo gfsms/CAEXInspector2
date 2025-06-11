@@ -34,7 +34,7 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/inspectionTitleText"
-            tools:text="Estado: Cerrada"
+            tools:text="Cerrada"
             tools:textColor="@color/colorPrimary" />
 
         <TextView

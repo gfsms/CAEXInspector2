@@ -11,6 +11,8 @@ import com.caextech.inspector.databinding.ItemCaexBinding
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.content.Intent
+import com.caextech.inspector.ui.equipment.EquipmentHistoryActivity
 
 /**
  * Adapter for displaying CAEX items with enriched information in a RecyclerView.
@@ -40,7 +42,13 @@ class CAEXAdapter(
             binding.root.setOnClickListener {
                 val position = adapterPosition
                 if (position != RecyclerView.NO_POSITION) {
-                    onItemClick(getItem(position))
+                    val caexInfo = getItem(position)
+                    val context = binding.root.context
+                    val intent = Intent(context, EquipmentHistoryActivity::class.java).apply {
+                        putExtra("EXTRA_CAEX_ID", caexInfo.caex.caexId)
+                        putExtra("EXTRA_CAEX_NAME", caexInfo.caex.getNombreCompleto())
+                    }
+                    context.startActivity(intent)
                 }
             }
 
@@ -84,6 +92,15 @@ class CAEXAdapter(
             } else {
                 binding.lastInspectionText.text = "Sin inspecciones"
             }
+
+            // Conformidad stats - NUEVA SECCIÓN
+            binding.hallazgosText.text = caexInfo.getResumenHallazgos()
+            binding.conformidadPercentText.text = "${caexInfo.getPorcentajeConformidadRedondeado()}%"
+            binding.conformidadProgressBar.progress = caexInfo.getPorcentajeConformidadRedondeado()
+
+            // Cambiar color de la barra según conformidad
+            val progressColor = ContextCompat.getColor(binding.root.context, caexInfo.getColorConformidad())
+            binding.conformidadProgressBar.progressDrawable.setColorFilter(progressColor, android.graphics.PorterDuff.Mode.SRC_IN)
 
             // Action button state
             when {

@@ -21,6 +21,7 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.core.graphics.scale
 
 /**
  * Utility class for generating PDF reports of No Conforme responses.
@@ -46,7 +47,7 @@ object PdfGenerator {
         context: Context,
         inspeccionId: Long,
         noConformes: List<RespuestaConDetalles>,
-        outputFile: File
+        outputFile: File,
     ) {
         // Create PDF document
         val document = Document()
@@ -109,7 +110,7 @@ object PdfGenerator {
         recepcionId: Long,
         noConformes: List<RespuestaConDetalles>,
         rechazados: List<RespuestaConDetalles>,
-        outputFile: File
+        outputFile: File,
     ) {
         // Create PDF document
         val document = Document()
@@ -222,7 +223,7 @@ object PdfGenerator {
     private fun addNoConformeItems(
         context: Context,
         document: Document,
-        noConformes: List<RespuestaConDetalles>
+        noConformes: List<RespuestaConDetalles>,
     ) {
         // Group items by category
         val itemsByCategory = noConformes.groupBy { it.pregunta.getCategoriaName() }
@@ -248,7 +249,7 @@ object PdfGenerator {
     private fun addNoConformeItem(
         context: Context,
         document: Document,
-        respuesta: RespuestaConDetalles
+        respuesta: RespuestaConDetalles,
     ) {
         // Create a table for the item
         val itemTable = PdfPTable(1)
@@ -285,12 +286,7 @@ object PdfGenerator {
                     val bitmap = BitmapFactory.decodeFile(foto.rutaArchivo)
 
                     // Scale bitmap
-                    val scaledBitmap = Bitmap.createScaledBitmap(
-                        bitmap,
-                        300,  // width
-                        225,  // height
-                        true
-                    )
+                    val scaledBitmap = bitmap.scale(300, 225)
 
                     // Convert to iText Image
                     val image = Image.getInstance(bitmapToByteArray(scaledBitmap))
