@@ -334,4 +334,140 @@ object PdfGenerator {
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
         return sdf.format(Date())
     }
+
+    /**
+     * Genera PDF completo de historial de hallazgos para un equipo específico
+     */
+    fun generateEquipmentHistoryPdf(
+        context: Context,
+        caexName: String,
+        hallazgos: List<RespuestaConDetalles>,
+        outputFile: File,
+    ) {
+        val document = Document()
+
+        try {
+            PdfWriter.getInstance(document, FileOutputStream(outputFile))
+            document.open()
+
+            // Título
+            val title = Paragraph("Historial de Hallazgos - $caexName", TITLE_FONT)
+            title.alignment = Element.ALIGN_CENTER
+            title.spacingAfter = 20f
+            document.add(title)
+
+            // Resumen
+            val resumen = Paragraph("Total de hallazgos: ${hallazgos.size}", HEADER_FONT)
+            resumen.spacingAfter = 15f
+            document.add(resumen)
+
+            if (hallazgos.isNotEmpty()) {
+                // Agrupar por categoría
+                val porCategoria = hallazgos.groupBy { it.pregunta.getCategoriaName() }
+
+                porCategoria.forEach { (categoria, items) ->
+                    // Título de categoría
+                    val categoryHeader = Paragraph("$categoria (${items.size} hallazgos)", HEADER_FONT)
+                    categoryHeader.spacingBefore = 20f
+                    categoryHeader.spacingAfter = 10f
+                    document.add(categoryHeader)
+
+                    // Items de la categoría
+                    items.forEach { hallazgo ->
+                        addEquipmentHallazgoItem(document, hallazgo)
+                    }
+                }
+            } else {
+                document.add(Paragraph("No hay hallazgos registrados para este equipo.", NORMAL_FONT))
+            }
+
+            // Footer
+            val footer = Paragraph("Documento generado el ${getCurrentDateTime()}", SMALL_FONT)
+            footer.alignment = Element.ALIGN_CENTER
+            footer.spacingBefore = 20f
+            document.add(footer)
+
+        } finally {
+            document.close()
+        }
+    }
+
+    /**
+     * Agrega un hallazgo individual al PDF del equipo
+     */
+    private fun addEquipmentHallazgoItem(
+        document: Document,
+        hallazgo: RespuestaConDetalles,
+    ) {
+        val itemTable = PdfPTable(1)
+        itemTable.widthPercentage = 100f
+
+        // Header con fecha y tipo de inspección
+        val headerCell = PdfPCell()
+        val fechaTexto = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(hallazgo.respuesta.fechaCreacion))
+        val tipoTexto = when(hallazgo.respuesta.estado) {
+            "NO_CONFORME" -> "Recepción - NO CONFORME"
+            "RECHAZADO" -> "Entrega - RECHAZADO"
+            else -> hallazgo.respuesta.estado
+        }
+        headerCell.addElement(Paragraph("$fechaTexto | $tipoTexto", SMALL_FONT))
+        headerCell.backgroundColor = BaseColor.LIGHT_GRAY
+        headerCell.setPadding(5f)
+        itemTable.addCell(headerCell)
+
+        // Pregunta
+        val questionCell = PdfPCell(Phrase(hallazgo.pregunta.texto, SUBHEADER_FONT))
+        questionCell.setPadding(8f)
+        itemTable.addCell(questionCell)
+
+        // Comentarios
+        val commentsCell = PdfPCell()
+        commentsCell.addElement(Paragraph("Comentarios:", SMALL_FONT))
+        commentsCell.addElement(Paragraph(hallazgo.respuesta.comentarios, NORMAL_FONT))
+        commentsCell.setPadding(5f)
+        itemTable.addCell(commentsCell)
+
+        // Información SAP
+        if (!hallazgo.respuesta.tipoAccion.isNullOrEmpty() && !hallazgo.respuesta.idAvisoOrdenTrabajo.isNullOrEmpty()) {
+            val sapCell = PdfPCell()
+            val tipoAccion = if (hallazgo.respuesta.tipoAccion == "INMEDIATO") "AVISO" else "OT"
+            sapCell.addElement(Paragraph("SAP:", SMALL_FONT))
+            sapCell.addElement(Paragraph("$tipoAccion: ${hallazgo.respuesta.idAvisoOrdenTrabajo}", NORMAL_FONT))
+            sapCell.setPadding(5f)
+            itemTable.addCell(sapCell)
+        }
+
+        // Fotos (si las hay)
+        if (hallazgo.tieneFotos()) {
+            val photosCell = PdfPCell()
+            photosCell.addElement(Paragraph("Evidencia fotográfica:", SMALL_FONT))
+
+            val photoTable = PdfPTable(Math.min(hallazgo.fotos.size, 3))
+            photoTable.widthPercentage = 100f
+
+            hallazgo.fotos.take(3).forEach { foto ->
+                try {
+                    val bitmap = BitmapFactory.decodeFile(foto.rutaArchivo)
+                    val scaledBitmap = bitmap.scale(200, 150)
+                    val image = Image.getInstance(bitmapToByteArray(scaledBitmap))
+                    image.scaleToFit(80f, 60f)
+
+                    val cell = PdfPCell(image)
+                    cell.horizontalAlignment = Element.ALIGN_CENTER
+                    cell.verticalAlignment = Element.ALIGN_MIDDLE
+                    cell.paddingTop = 3f
+                    photoTable.addCell(cell)
+                } catch (e: Exception) {
+                    val cell = PdfPCell(Phrase("Error imagen", SMALL_FONT))
+                    photoTable.addCell(cell)
+                }
+            }
+
+            photosCell.addElement(photoTable)
+            itemTable.addCell(photosCell)
+        }
+
+        document.add(itemTable)
+        document.add(Paragraph(" ", SMALL_FONT)) // Espaciado
+    }
 }

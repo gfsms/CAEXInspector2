@@ -9,6 +9,13 @@ import com.caextech.inspector.databinding.ActivityEquipmentHistoryBinding
 import com.caextech.inspector.ui.adapters.EquipmentHistoryPagerAdapter
 import com.caextech.inspector.ui.viewmodels.RespuestaViewModel
 import com.google.android.material.tabs.TabLayoutMediator
+import com.caextech.inspector.utils.PdfGenerator
+import android.os.Environment
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.Toast
+import com.caextech.inspector.R
+import java.io.File
 
 class EquipmentHistoryActivity : AppCompatActivity() {
 
@@ -49,7 +56,34 @@ class EquipmentHistoryActivity : AppCompatActivity() {
         // Configurar ViewPager y Tabs
         setupViewPagerAndTabs()
     }
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_equipment_history, menu)
+        return true
+    }
 
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_export_pdf -> {
+                exportToPdf()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun exportToPdf() {
+        respuestaViewModel.getHistorialHallazgosByCAEX(caexId).observe(this) { hallazgos ->
+            val fileName = "Historial_${caexName.replace(" ", "_")}_${System.currentTimeMillis()}.pdf"
+
+            // Guardar en Downloads público
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val file = File(downloadsDir, fileName)
+
+            PdfGenerator.generateEquipmentHistoryPdf(this, caexName, hallazgos, file)
+
+            Toast.makeText(this, "PDF guardado en Downloads: $fileName", Toast.LENGTH_LONG).show()
+        }
+    }
     private fun initViewModel() {
         val application = application as CAEXInspectorApp
         respuestaViewModel = ViewModelProvider(
