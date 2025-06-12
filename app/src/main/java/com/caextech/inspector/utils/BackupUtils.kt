@@ -284,12 +284,10 @@ object BackupUtils {
                 val zipPath = relativePath.replace(File.separatorChar, '/')
 
                 if (file.isDirectory) {
-                    // Para directorios, asegurar que terminen con '/'
                     val dirEntry = if (zipPath.endsWith('/')) zipPath else "$zipPath/"
                     zipOut.putNextEntry(ZipEntry(dirEntry))
                     zipOut.closeEntry()
                 } else {
-                    // Para archivos, copiar el contenido
                     zipOut.putNextEntry(ZipEntry(zipPath))
                     file.inputStream().use { input ->
                         input.copyTo(zipOut)

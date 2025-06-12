@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.caextech.inspector.databinding.ActivityMainBinding
@@ -14,7 +13,6 @@ import com.caextech.inspector.ui.viewmodels.CAEXViewModel
 import com.caextech.inspector.ui.viewmodels.CategoriaPreguntaViewModel
 import com.caextech.inspector.ui.viewmodels.InspeccionViewModel
 import com.google.android.material.tabs.TabLayoutMediator
-import com.caextech.inspector.R
 import com.caextech.inspector.ui.backup.BackupRestoreActivity
 
 /**
@@ -143,14 +141,6 @@ class MainActivity : AppCompatActivity() {
                 binding.addFab.contentDescription = "Crear nueva inspección"
             }
         }
-    }
-
-    /**
-     * Shows dialog to add a new CAEX.
-     * Currently just shows a placeholder message.
-     */
-    private fun showAddCAEXDialog() {
-        Toast.makeText(this, "Funcionalidad para agregar CAEX en desarrollo", Toast.LENGTH_SHORT).show()
     }
 
     /**

@@ -359,9 +359,8 @@ class NoConformeSummaryActivity : AppCompatActivity(), HistorialRespuestasFragme
             }
         }
     }
-
     /**
-     * Generates a PDF report with the responses.
+     * Generates a PDF report with the responses - SOLO GUARDA, NO COMPARTE
      */
     private fun generatePdf() {
         // Create a timestamp for the filename
@@ -369,9 +368,9 @@ class NoConformeSummaryActivity : AppCompatActivity(), HistorialRespuestasFragme
         val prefix = if (tipoInspeccion == Inspeccion.TIPO_RECEPCION) "Recepcion" else "Entrega"
         val fileName = "Inspeccion_${prefix}_${inspeccionId}_${timestamp}.pdf"
 
-        // Create directory in external storage
-        val storageDir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
-        val pdfFile = File(storageDir, fileName)
+        // SOLO crear archivo en Downloads público
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val publicPdfFile = File(downloadsDir, fileName)
 
         if (tipoInspeccion == Inspeccion.TIPO_RECEPCION) {
             // For reception inspections, generate PDF with No Conforme items
@@ -385,11 +384,16 @@ class NoConformeSummaryActivity : AppCompatActivity(), HistorialRespuestasFragme
                         this,
                         inspeccionId,
                         noConformes,
-                        pdfFile
+                        publicPdfFile
                     )
 
-                    // Share the PDF
-                    sharePdf(pdfFile)
+                    // Mostrar confirmación SOLAMENTE
+                    Toast.makeText(
+                        this,
+                        "PDF guardado en Downloads: $fileName",
+                        Toast.LENGTH_LONG
+                    ).show()
+
                 } catch (e: Exception) {
                     Toast.makeText(
                         this,
@@ -399,26 +403,29 @@ class NoConformeSummaryActivity : AppCompatActivity(), HistorialRespuestasFragme
                 }
             }
         } else {
-            // For delivery inspections, generate PDF with both No Conforme and Rechazado items
+            // For delivery inspections
             if (inspeccionRecepcionId != null) {
-                generateDeliveryPdf(pdfFile, inspeccionId, inspeccionRecepcionId!!)
+                generateDeliveryPdf(publicPdfFile, inspeccionId, inspeccionRecepcionId!!)
             } else {
-                // If no reception inspection ID is available, only include Rechazado items
                 respuestaViewModel.getRespuestasConDetallesByInspeccionYEstado(
                     inspeccionId,
                     Respuesta.ESTADO_RECHAZADO
                 ).observe(this) { rechazados ->
-                    // Generate PDF
                     try {
                         PdfGenerator.generatePdf(
                             this,
                             inspeccionId,
                             rechazados,
-                            pdfFile
+                            publicPdfFile
                         )
 
-                        // Share the PDF
-                        sharePdf(pdfFile)
+                        // Mostrar confirmación SOLAMENTE
+                        Toast.makeText(
+                            this,
+                            "PDF guardado en Downloads: $fileName",
+                            Toast.LENGTH_LONG
+                        ).show()
+
                     } catch (e: Exception) {
                         Toast.makeText(
                             this,
@@ -432,20 +439,17 @@ class NoConformeSummaryActivity : AppCompatActivity(), HistorialRespuestasFragme
     }
 
     /**
-     * Generates a PDF for delivery inspections that includes both reception and delivery items.
+     * Generates a PDF for delivery inspections - SOLO GUARDA, NO COMPARTE
      */
-    private fun generateDeliveryPdf(pdfFile: File, entregaId: Long, recepcionId: Long) {
-        // Get No Conforme responses from reception inspection
+    private fun generateDeliveryPdf(publicPdfFile: File, entregaId: Long, recepcionId: Long) {
         respuestaViewModel.getRespuestasConDetallesByInspeccionYEstado(
             recepcionId,
             Respuesta.ESTADO_NO_CONFORME
         ).observe(this) { noConformes ->
-            // Get Rechazado responses from delivery inspection
             respuestaViewModel.getRespuestasConDetallesByInspeccionYEstado(
                 entregaId,
                 Respuesta.ESTADO_RECHAZADO
             ).observe(this) { rechazados ->
-                // Generate PDF with both sets of responses
                 try {
                     PdfGenerator.generateDeliveryPdf(
                         this,
@@ -453,11 +457,16 @@ class NoConformeSummaryActivity : AppCompatActivity(), HistorialRespuestasFragme
                         recepcionId,
                         noConformes,
                         rechazados,
-                        pdfFile
+                        publicPdfFile
                     )
 
-                    // Share the PDF
-                    sharePdf(pdfFile)
+                    // Mostrar confirmación SOLAMENTE
+                    Toast.makeText(
+                        this,
+                        "PDF guardado en Downloads: ${publicPdfFile.name}",
+                        Toast.LENGTH_LONG
+                    ).show()
+
                 } catch (e: Exception) {
                     Toast.makeText(
                         this,
@@ -466,38 +475,6 @@ class NoConformeSummaryActivity : AppCompatActivity(), HistorialRespuestasFragme
                     ).show()
                 }
             }
-        }
-    }
-
-    /**
-     * Shares the generated PDF file.
-     */
-    private fun sharePdf(pdfFile: File) {
-        // Get the file URI using FileProvider
-        val fileUri = FileProvider.getUriForFile(
-            this,
-            "${packageName}.fileprovider",
-            pdfFile
-        )
-
-        // Create intent to view the PDF
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(fileUri, "application/pdf")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-
-        // Check if there's an app that can handle the intent
-        if (intent.resolveActivity(packageManager) != null) {
-            startActivity(intent)
-        } else {
-            // If no PDF viewer is installed, show a share intent
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "application/pdf"
-                putExtra(Intent.EXTRA_STREAM, fileUri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-
-            startActivity(Intent.createChooser(shareIntent, "Compartir PDF"))
         }
     }
 
