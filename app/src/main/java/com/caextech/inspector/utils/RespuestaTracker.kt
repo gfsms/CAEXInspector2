@@ -19,6 +19,13 @@ object RespuestaTracker {
     // Mapa para asociar respuestaId con el par inspeccionId-preguntaId
     private val respuestaIdMap = mutableMapOf<Long, Pair<Long, Long>>()
 
+    fun sincronizarConBaseDatos(inspeccionId: Long, respuestasDB: List<RespuestaConDetalles>) {
+        for (respuesta in respuestasDB) {
+            val key = Pair(inspeccionId, respuesta.pregunta.preguntaId)
+            respuestasEnMemoria[key] = respuesta.respuesta.estado
+            registrarRespuestaId(respuesta.respuesta.respuestaId, inspeccionId, respuesta.pregunta.preguntaId)
+        }
+    }
     /**
      * Asegura que el estado de la pregunta sea el deseado
      */

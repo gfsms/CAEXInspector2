@@ -108,16 +108,33 @@ class QuestionAdapter(
 
         // Guardar las respuestas en el mapa
         respuestas.clear()
+
+        val preguntasEnBD = mutableSetOf<Long>()
+
         for (respuesta in newRespuestas) {
             val preguntaId = respuesta.pregunta.preguntaId
             respuestas[preguntaId] = respuesta
+            preguntasEnBD.add(preguntaId)
 
             // Actualizar el estado actual desde la BD para esta pregunta
             estadoActual[preguntaId] = respuesta.respuesta.estado
 
             Logger.d(TAG, "Agregada respuesta DB para pregunta $preguntaId: ${respuesta.respuesta.estado}")
         }
+        for (pregunta in preguntas) {
+            val preguntaId = pregunta.preguntaId
 
+            // Si la pregunta NO está en BD pero SÍ tiene estado en memoria, preservarlo
+            if (!preguntasEnBD.contains(preguntaId)) {
+                val estadoEnMemoria = RespuestaTracker.obtenerEstadoRespuesta(inspeccionId, preguntaId)
+                if (estadoEnMemoria != null) {
+                    estadoActual[preguntaId] = estadoEnMemoria
+                    Logger.d(TAG, "Preservado estado en memoria para pregunta $preguntaId: $estadoEnMemoria")
+                }
+            }
+        }
+        // Actualizar RespuestaTracker con los datos más recientes
+        RespuestaTracker.actualizarDesdeBaseDeDatos(inspeccionId, newRespuestas)
         // Actualizar la UI para reflejar los cambios
         notifyDataSetChanged()
     }
@@ -177,10 +194,17 @@ class QuestionAdapter(
         }
 
         /**
-         * Configura la vista según el estado de la respuesta
+         * Configura la vista según el estado de la respuesta.
+         * PRIORIZA el estado en memoria sobre el estado de BD.
          */
         private fun configureViewForState(pregunta: Pregunta, estado: String, respuestaDetalles: RespuestaConDetalles?) {
-            when (estado) {
+            // CAMBIO CLAVE: Verificar primero el estado en memoria
+            val estadoEnMemoria = RespuestaTracker.obtenerEstadoRespuesta(inspeccionId, pregunta.preguntaId)
+            val estadoFinal = estadoEnMemoria ?: estado
+
+            Logger.d(TAG, "Configurando vista pregunta ${pregunta.preguntaId}: estado=$estado, memoria=$estadoEnMemoria, final=$estadoFinal")
+
+            when (estadoFinal) {
                 Respuesta.ESTADO_CONFORME -> {
                     binding.radioConforme.isChecked = true
                     binding.commentsLayout.visibility = View.GONE
@@ -192,12 +216,11 @@ class QuestionAdapter(
                     binding.radioNoConforme.isChecked = true
                     binding.commentsLayout.visibility = View.VISIBLE
 
-                    // Mostrar comentarios si hay una respuesta guardada o comentarios temporales
-                    if (respuestaDetalles != null) {
-                        binding.commentsEditText.setText(respuestaDetalles.respuesta.comentarios)
-                    } else if (comentariosTemp.containsKey(pregunta.preguntaId)) {
-                        binding.commentsEditText.setText(comentariosTemp[pregunta.preguntaId])
-                    }
+                    // Mostrar comentarios: priorizar memoria temporal, luego BD
+                    val comentarios = comentariosTemp[pregunta.preguntaId]
+                        ?: respuestaDetalles?.respuesta?.comentarios
+                        ?: ""
+                    binding.commentsEditText.setText(comentarios)
 
                     binding.statusText.text = "No Conforme"
                     binding.statusText.setTextColor(ContextCompat.getColor(context, R.color.status_no_conforme))
@@ -208,48 +231,89 @@ class QuestionAdapter(
                         setupPhotosRecyclerView(respuestaDetalles)
                     }
                 }
+                Respuesta.ESTADO_ACEPTADO -> {
+                    binding.radioConforme.isChecked = true
+                    binding.commentsLayout.visibility = View.GONE
+                    binding.photosContainer.visibility = View.GONE
+                    binding.statusText.text = "Aceptado"
+                    binding.statusText.setTextColor(ContextCompat.getColor(context, R.color.status_conforme))
+                }
+                Respuesta.ESTADO_RECHAZADO -> {
+                    binding.radioNoConforme.isChecked = true
+                    binding.commentsLayout.visibility = View.VISIBLE
+
+                    val comentarios = comentariosTemp[pregunta.preguntaId]
+                        ?: respuestaDetalles?.respuesta?.comentarios
+                        ?: ""
+                    binding.commentsEditText.setText(comentarios)
+
+                    binding.statusText.text = "Rechazado"
+                    binding.statusText.setTextColor(ContextCompat.getColor(context, R.color.status_no_conforme))
+
+                    binding.photosContainer.visibility = View.VISIBLE
+                    if (respuestaDetalles != null && respuestaDetalles.tieneFotos()) {
+                        setupPhotosRecyclerView(respuestaDetalles)
+                    }
+                }
             }
         }
 
         /**
-         * Configura los listeners para los RadioButtons
+         * Configura los listeners para los RadioButtons.
+         * Previene activación durante la configuración de la vista.
          */
         private fun setupRadioButtonListeners(pregunta: Pregunta) {
+            // Flag para prevenir activación durante bind
+            var isSettingUp = false
+
             binding.radioConforme.setOnClickListener {
+                // Solo procesar si no estamos en setup y el usuario realmente hizo click
+                if (isSettingUp) return@setOnClickListener
+
+                Logger.d(TAG, "Usuario seleccionó CONFORME para pregunta ${pregunta.preguntaId}")
+
                 // Actualizar estado local
                 estadoActual[pregunta.preguntaId] = Respuesta.ESTADO_CONFORME
 
                 // Actualizar RespuestaTracker
                 RespuestaTracker.registrarRespuestaConforme(inspeccionId, pregunta.preguntaId)
 
-                // Actualizar UI
+                // Actualizar UI inmediatamente sin esperar BD
+                isSettingUp = true
                 binding.commentsLayout.visibility = View.GONE
                 binding.photosContainer.visibility = View.GONE
                 binding.statusText.text = "Conforme"
                 binding.statusText.setTextColor(ContextCompat.getColor(context, R.color.status_conforme))
+                isSettingUp = false
 
                 // Guardar en la base de datos
                 onConformeSelected(pregunta.preguntaId)
             }
 
             binding.radioNoConforme.setOnClickListener {
+                if (isSettingUp) return@setOnClickListener
+
+                Logger.d(TAG, "Usuario seleccionó NO_CONFORME para pregunta ${pregunta.preguntaId}")
+
                 // Actualizar estado local
                 estadoActual[pregunta.preguntaId] = Respuesta.ESTADO_NO_CONFORME
 
                 // Actualizar RespuestaTracker
                 RespuestaTracker.registrarRespuestaNoConforme(inspeccionId, pregunta.preguntaId)
 
-                // Actualizar UI
+                // Actualizar UI inmediatamente
+                isSettingUp = true
                 binding.commentsLayout.visibility = View.VISIBLE
                 binding.photosContainer.visibility = View.VISIBLE
                 binding.statusText.text = "No Conforme"
                 binding.statusText.setTextColor(ContextCompat.getColor(context, R.color.status_no_conforme))
+                isSettingUp = false
 
-                // Si ya hay comentarios, guardar la respuesta
-                val comentarios = binding.commentsEditText.text.toString()
-                if (comentarios.isNotBlank()) {
-                    guardarRespuestaNoConforme(pregunta.preguntaId, comentarios)
+                // MEJORA: Guardar inmediatamente con comentario temporal
+                val comentarios = binding.commentsEditText.text.toString().ifBlank {
+                    "Pendiente de completar detalles"
                 }
+                guardarRespuestaNoConforme(pregunta.preguntaId, comentarios)
             }
         }
 

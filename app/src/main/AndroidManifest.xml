@@ -67,6 +67,13 @@
             android:exported="false"
             android:label="Resumen No Conformes"
             android:parentActivityName=".ui.inspection.InspectionQuestionnaireActivity" />
+
+        <activity
+            android:name=".ui.inspection.CreateDeliveryInspectionActivity"
+            android:exported="false"
+            android:label="Crear Inspección de Entrega"
+            android:parentActivityName=".MainActivity" />
+
         <activity
             android:name=".ui.equipment.EquipmentHistoryActivity"
             android:exported="false"
