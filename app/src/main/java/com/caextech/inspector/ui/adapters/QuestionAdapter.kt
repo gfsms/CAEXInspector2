@@ -134,7 +134,7 @@ class QuestionAdapter(
             }
         }
         // Actualizar RespuestaTracker con los datos más recientes
-        RespuestaTracker.actualizarDesdeBaseDeDatos(inspeccionId, newRespuestas)
+        RespuestaTracker.sincronizarConBaseDatos(inspeccionId, newRespuestas)
         // Actualizar la UI para reflejar los cambios
         notifyDataSetChanged()
     }

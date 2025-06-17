@@ -19,11 +19,27 @@ object RespuestaTracker {
     // Mapa para asociar respuestaId con el par inspeccionId-preguntaId
     private val respuestaIdMap = mutableMapOf<Long, Pair<Long, Long>>()
 
+    /**
+     * Sincroniza el estado en memoria con los datos más recientes de la base de datos.
+     * Este método asegura que el RespuestaTracker tenga la información más actualizada.
+     *
+     * @param inspeccionId ID de la inspección
+     * @param respuestasDB Lista de respuestas de la base de datos
+     */
     fun sincronizarConBaseDatos(inspeccionId: Long, respuestasDB: List<RespuestaConDetalles>) {
         for (respuesta in respuestasDB) {
-            val key = Pair(inspeccionId, respuesta.pregunta.preguntaId)
-            respuestasEnMemoria[key] = respuesta.respuesta.estado
-            registrarRespuestaId(respuesta.respuesta.respuestaId, inspeccionId, respuesta.pregunta.preguntaId)
+            val preguntaId = respuesta.pregunta.preguntaId
+            val key = Pair(inspeccionId, preguntaId)
+
+            // Actualizar el estado en memoria solo si no hay un estado más reciente
+            // (esto preserva cambios del usuario que aún no se han guardado)
+            if (!respuestasEnMemoria.containsKey(key)) {
+                respuestasEnMemoria[key] = respuesta.respuesta.estado
+                Logger.d(TAG, "Sincronizado estado desde DB para inspección $inspeccionId, pregunta $preguntaId: ${respuesta.respuesta.estado}")
+            }
+
+            // Siempre actualizar el mapeo de respuestaId
+            registrarRespuestaId(respuesta.respuesta.respuestaId, inspeccionId, preguntaId)
         }
     }
     /**
