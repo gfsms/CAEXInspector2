@@ -9,7 +9,6 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -21,9 +20,7 @@ import com.caextech.inspector.ui.viewmodels.CategoriaPreguntaViewModel
 import com.caextech.inspector.ui.viewmodels.FotoViewModel
 import com.caextech.inspector.ui.viewmodels.RespuestaViewModel
 import com.caextech.inspector.utils.Logger
-import com.caextech.inspector.utils.RespuestaTracker
 import kotlinx.coroutines.launch
-import java.io.File
 
 /**
  * Fragment for displaying questions of a specific category in the inspection questionnaire.

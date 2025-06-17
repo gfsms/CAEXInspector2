@@ -145,6 +145,7 @@ class InspectionDetailActivity : AppCompatActivity() {
             // Entrega cerrada - métricas del ciclo completo
             inspeccion.tipo == "ENTREGA" && inspeccion.fechaFinalizacion != null && inspeccion.inspeccionRecepcionId != null -> {
                 binding.hallazgosCard.visibility = View.GONE
+                binding.metricasCard.visibility = View.VISIBLE
                 inspeccionViewModel.getInspeccionConCAEXById(inspeccion.inspeccionRecepcionId).observe(this) { recepcion ->
                     recepcion?.let {
                         val metricas = InspectionAnalytics.obtenerMetricasEntregaParaExportacion(inspeccion, it.inspeccion)
@@ -155,9 +156,10 @@ class InspectionDetailActivity : AppCompatActivity() {
                 }
             }
 
-            // Recepción cerrada - métricas parciales
+            // Cualquier inspección cerrada - métricas
             inspeccion.fechaFinalizacion != null -> {
                 binding.hallazgosCard.visibility = View.GONE
+                binding.metricasCard.visibility = View.VISIBLE
                 val metricas = InspectionAnalytics.obtenerMetricasParaExportacion(inspeccion)
                 binding.duracionText.text = metricas["duracionRealFormateada"] as? String ?: "N/A"
                 binding.desviacionText.text = metricas["desviacionEstimadaFormateada"] as? String ?: "N/A"
