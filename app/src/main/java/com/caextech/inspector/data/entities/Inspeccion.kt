@@ -62,7 +62,9 @@ data class Inspeccion(
     val fechaFinalizacion: Long? = null,
 
     // Comentarios generales sobre la inspección
-    val comentariosGenerales: String = ""
+    val comentariosGenerales: String = "",
+    // Fecha estimada de término de la inspección
+    val fechaTerminoEstimada: Long? = null
 ) {
     companion object {
         // Constantes para los tipos de inspección

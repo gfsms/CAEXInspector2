@@ -1,5 +1,6 @@
 package com.caextech.inspector.ui.adapters
 
+import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,6 +12,7 @@ import com.caextech.inspector.data.entities.Inspeccion
 import com.caextech.inspector.data.relations.InspeccionConCAEX
 import com.caextech.inspector.databinding.ItemInspectionBinding
 import androidx.core.content.ContextCompat
+import com.caextech.inspector.ui.inspection.InspectionDetailActivity
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -48,7 +50,11 @@ class InspectionAdapter(private val onItemClick: (InspeccionConCAEX) -> Unit) :
             binding.root.setOnClickListener {
                 val position = adapterPosition
                 if (position != RecyclerView.NO_POSITION) {
-                    onItemClick(getItem(position))
+                    // Ir a detalles de la inspección
+                    val context = binding.root.context
+                    val intent = Intent(context, InspectionDetailActivity::class.java)
+                    intent.putExtra(InspectionDetailActivity.EXTRA_INSPECCION_ID, getItem(position).inspeccion.inspeccionId)
+                    context.startActivity(intent)
                 }
             }
         }

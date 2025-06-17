@@ -68,6 +68,26 @@ class InspeccionRepository(
 
         return inspeccionDao.insertInspeccion(inspeccion)
     }
+    suspend fun crearInspeccionRecepcionConFecha(
+        caexId: Long,
+        nombreInspector: String,
+        nombreSupervisor: String,
+        fechaTerminoEstimada: Long?
+    ): Long {
+        val caex = caexDao.getCAEXById(caexId)
+            ?: throw IllegalArgumentException("El CAEX con ID $caexId no existe")
+
+        val inspeccion = Inspeccion(
+            caexId = caexId,
+            tipo = Inspeccion.TIPO_RECEPCION,
+            estado = Inspeccion.ESTADO_ABIERTA,
+            nombreInspector = nombreInspector,
+            nombreSupervisor = nombreSupervisor,
+            fechaTerminoEstimada = fechaTerminoEstimada
+        )
+
+        return inspeccionDao.insertInspeccion(inspeccion)
+    }
     /**
      * Crea una inspección de entrega basada en una inspección de recepción existente.
      *

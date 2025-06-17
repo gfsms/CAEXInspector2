@@ -109,6 +109,53 @@ class InspeccionViewModel(
         }
     }
 
+    fun buscarCAEXPorNumeroYCrearInspeccionConFecha(
+        numeroIdentificador: Int,
+        modelo: String,
+        nombreInspector: String,
+        nombreSupervisor: String,
+        fechaTerminoEstimada: Long?
+    ) = viewModelScope.launch {
+        try {
+            if (caexRepository == null) {
+                _operationStatus.value = OperationStatus.Error("No se puede realizar esta operación sin el CAEXRepository")
+                return@launch
+            }
+
+            // Buscar el CAEX por número identificador
+            var caex = caexRepository.getCAEXByNumeroIdentificador(numeroIdentificador)
+
+            // Si no existe, crearlo
+            if (caex == null) {
+                val nuevoCAEX = CAEX(numeroIdentificador = numeroIdentificador, modelo = modelo)
+                if (!nuevoCAEX.esIdentificadorValido()) {
+                    throw IllegalArgumentException("El número identificador $numeroIdentificador no es válido para el modelo $modelo")
+                }
+                val caexId = caexRepository.insert(nuevoCAEX)
+                caex = caexRepository.getCAEXById(caexId)
+                    ?: throw IllegalStateException("Error al crear el CAEX")
+            } else {
+                if (caex.modelo != modelo) {
+                    throw IllegalArgumentException("El CAEX #$numeroIdentificador existe pero es de modelo ${caex.modelo}, no $modelo")
+                }
+            }
+
+            // Crear la inspección de recepción con fecha estimada
+            val inspeccionId = inspeccionRepository.crearInspeccionRecepcionConFecha(
+                caex.caexId,
+                nombreInspector,
+                nombreSupervisor,
+                fechaTerminoEstimada
+            )
+
+            _operationStatus.value = OperationStatus.Success(
+                "Inspección de recepción creada correctamente",
+                inspeccionId
+            )
+        } catch (e: Exception) {
+            _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
+        }
+    }
     /**
      * Crea una nueva inspección de recepción.
      *

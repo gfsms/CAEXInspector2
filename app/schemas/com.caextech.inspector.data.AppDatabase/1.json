@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "9d3df7f2c8e3654a821bd22b2ce558b0",
+    "identityHash": "2076fb66960ebe413d4936c631f6ff65",
     "entities": [
       {
         "tableName": "caex",
@@ -160,7 +160,7 @@
       },
       {
         "tableName": "inspecciones",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`inspeccionId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `caexId` INTEGER NOT NULL, `tipo` TEXT NOT NULL, `estado` TEXT NOT NULL, `nombreInspector` TEXT NOT NULL, `nombreSupervisor` TEXT NOT NULL, `inspeccionRecepcionId` INTEGER, `fechaCreacion` INTEGER NOT NULL, `fechaFinalizacion` INTEGER, `comentariosGenerales` TEXT NOT NULL, FOREIGN KEY(`caexId`) REFERENCES `caex`(`caexId`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`inspeccionRecepcionId`) REFERENCES `inspecciones`(`inspeccionId`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`inspeccionId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `caexId` INTEGER NOT NULL, `tipo` TEXT NOT NULL, `estado` TEXT NOT NULL, `nombreInspector` TEXT NOT NULL, `nombreSupervisor` TEXT NOT NULL, `inspeccionRecepcionId` INTEGER, `fechaCreacion` INTEGER NOT NULL, `fechaFinalizacion` INTEGER, `comentariosGenerales` TEXT NOT NULL, `fechaTerminoEstimada` INTEGER, FOREIGN KEY(`caexId`) REFERENCES `caex`(`caexId`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`inspeccionRecepcionId`) REFERENCES `inspecciones`(`inspeccionId`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "inspeccionId",
@@ -221,6 +221,12 @@
             "columnName": "comentariosGenerales",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "fechaTerminoEstimada",
+            "columnName": "fechaTerminoEstimada",
+            "affinity": "INTEGER",
+            "notNull": false
           }
         ],
         "primaryKey": {
@@ -464,7 +470,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9d3df7f2c8e3654a821bd22b2ce558b0')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2076fb66960ebe413d4936c631f6ff65')"
     ]
   }
 }

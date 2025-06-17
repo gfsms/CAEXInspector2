@@ -7,6 +7,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <!-- Permiso para escribir en el almacenamiento externo (necesario para Android 10 y anteriores) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
 
@@ -20,6 +21,8 @@
     <!-- Permiso para Android 11+ para gestionar todos los archivos -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         android:minSdkVersion="30" />
+
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:name=".CAEXInspectorApp"
@@ -61,6 +64,12 @@
             android:exported="false"
             android:label="Cuestionario de Inspección"
             android:parentActivityName=".ui.inspection.CreateInspectionActivity" />
+
+        <activity
+            android:name=".ui.inspection.InspectionDetailActivity"
+            android:exported="false"
+            android:label="Detalle de Inspección"
+            android:parentActivityName=".MainActivity" />
 
         <activity
             android:name=".ui.inspection.NoConformeSummaryActivity"
@@ -107,7 +116,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
+        <!-- Receiver para alarmas de inspecciones -->
+        <receiver
+            android:name=".notifications.NotificationReceiver"
+            android:enabled="true"
+            android:exported="false" />
     </application>
 
 </manifest>

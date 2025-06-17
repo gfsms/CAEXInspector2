@@ -14,6 +14,11 @@ import com.caextech.inspector.ui.viewmodels.InspeccionViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import android.view.View
+import com.caextech.inspector.notifications.AlarmScheduler
+import java.util.*
 
 /**
  * Actividad para crear una nueva inspección de "Control Inicio de Intervención".
@@ -27,6 +32,8 @@ class CreateInspectionActivity : AppCompatActivity() {
     // Variables para validación
     private var modeloSeleccionado: String = ""
     private var idEsValido: Boolean = false
+    private var fechaTerminoEstimada: Long? = null
+    private lateinit var alarmScheduler: AlarmScheduler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +55,8 @@ class CreateInspectionActivity : AppCompatActivity() {
                 application.caexRepository  // Aseguramos pasar el CAEXRepository
             )
         )[InspeccionViewModel::class.java]
+
+        alarmScheduler = AlarmScheduler(this)
 
         // Configurar fecha y hora actual (no editable)
         actualizarFechaHora()
@@ -85,6 +94,10 @@ class CreateInspectionActivity : AppCompatActivity() {
         // Listener para botón de iniciar inspección
         binding.startInspectionButton.setOnClickListener {
             iniciarInspeccion()
+        }
+        // Listener para selección de fecha estimada
+        binding.estimatedEndDateEditText.setOnClickListener {
+            showEstimatedDatePicker()
         }
     }
 
@@ -163,11 +176,12 @@ class CreateInspectionActivity : AppCompatActivity() {
         val nombreSupervisor = binding.supervisorNameEditText.text.toString()
 
         // Buscar o crear el CAEX
-        inspeccionViewModel.buscarCAEXPorNumeroYCrearInspeccion(
+        inspeccionViewModel.buscarCAEXPorNumeroYCrearInspeccionConFecha(
             caexId,
             modeloSeleccionado,
             nombreInspector,
-            nombreSupervisor
+            nombreSupervisor,
+            fechaTerminoEstimada
         )
     }
 
@@ -182,6 +196,10 @@ class CreateInspectionActivity : AppCompatActivity() {
 
             when (status) {
                 is InspeccionViewModel.OperationStatus.Success -> {
+                    // Programar alarma si tiene fecha estimada
+                    if (fechaTerminoEstimada != null) {
+                        alarmScheduler.programarAlarmaInspeccion(status.id, fechaTerminoEstimada!!)
+                    }
                     // Inspección creada exitosamente, navegar a la pantalla de inspección
                     Toast.makeText(this, status.message, Toast.LENGTH_SHORT).show()
 
@@ -243,7 +261,34 @@ class CreateInspectionActivity : AppCompatActivity() {
         onBackPressed()
         return true
     }
+    private fun showEstimatedDatePicker() {
+        val calendar = Calendar.getInstance()
 
+        // Si ya hay una fecha seleccionada, usarla como inicial
+        fechaTerminoEstimada?.let { calendar.timeInMillis = it }
+
+        DatePickerDialog(this, { _, year, month, dayOfMonth ->
+            calendar.set(Calendar.YEAR, year)
+            calendar.set(Calendar.MONTH, month)
+            calendar.set(Calendar.DAY_OF_MONTH, dayOfMonth)
+
+            showEstimatedTimePicker(calendar)
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+    }
+
+    private fun showEstimatedTimePicker(calendar: Calendar) {
+        TimePickerDialog(this, { _, hourOfDay, minute ->
+            calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+            calendar.set(Calendar.MINUTE, minute)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+
+            fechaTerminoEstimada = calendar.timeInMillis
+
+            val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+            binding.estimatedEndDateEditText.setText(sdf.format(Date(fechaTerminoEstimada!!)))
+        }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show()
+    }
     companion object {
         const val EXTRA_INSPECCION_ID = "extra_inspeccion_id"
     }
