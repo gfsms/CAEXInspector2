@@ -9,6 +9,7 @@ import android.provider.Settings
 import androidx.core.content.ContextCompat
 import com.caextech.inspector.utils.Logger
 
+
 /**
  * Clase para programar y cancelar alarmas de inspecciones.
  */
@@ -26,10 +27,11 @@ class AlarmScheduler(private val context: Context) {
         try {
             // Verificar permisos para Android 12+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
-                Logger.w("AlarmScheduler", "No se puede programar alarmas exactas. Permisos insuficientes.")
-                // Opcionalmente, dirigir al usuario a configuración
-                // val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                // context.startActivity(intent)
+                Logger.w("AlarmScheduler", "Redirigiendo a configuración de alarmas exactas")
+                // Dirigir al usuario a configuración
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                context.startActivity(intent)
                 return
             }
 

@@ -550,19 +550,39 @@ object BackupUtils {
 
             val newCaexId = caexIdMap[oldCaexId]
             if (newCaexId != null) {
-                val newInspeccion = Inspeccion(
-                    caexId = newCaexId,
-                    tipo = inspeccionJson.getString("tipo"),
-                    estado = inspeccionJson.getString("estado"),
-                    nombreInspector = inspeccionJson.getString("nombreInspector"),
-                    nombreSupervisor = inspeccionJson.getString("nombreSupervisor"),
-                    inspeccionRecepcionId = null, // Se actualizará después
-                    fechaCreacion = inspeccionJson.getLong("fechaCreacion"),
-                    fechaFinalizacion = if (inspeccionJson.isNull("fechaFinalizacion")) null else inspeccionJson.getLong("fechaFinalizacion"),
-                    comentariosGenerales = inspeccionJson.getString("comentariosGenerales")
-                )
-                val newId = database.inspeccionDao().insertInspeccion(newInspeccion)
-                inspeccionIdMap[oldId] = newId
+                // Verificar si ya existe una inspección similar
+                val fechaCreacion = inspeccionJson.getLong("fechaCreacion")
+                val tipo = inspeccionJson.getString("tipo")
+                val nombreInspector = inspeccionJson.getString("nombreInspector")
+
+                val existingInspecciones = database.inspeccionDao().getAllInspecciones().first()
+                val existingInspeccion = existingInspecciones.find {
+                    it.caexId == newCaexId &&
+                            it.fechaCreacion == fechaCreacion &&
+                            it.tipo == tipo &&
+                            it.nombreInspector == nombreInspector
+                }
+
+                if (existingInspeccion != null) {
+                    // Usar la inspección existente
+                    inspeccionIdMap[oldId] = existingInspeccion.inspeccionId
+                } else {
+                    // Crear nueva inspección
+                    val newInspeccion = Inspeccion(
+                        caexId = newCaexId,
+                        tipo = tipo,
+                        estado = inspeccionJson.getString("estado"),
+                        nombreInspector = nombreInspector,
+                        nombreSupervisor = inspeccionJson.getString("nombreSupervisor"),
+                        inspeccionRecepcionId = null,
+                        fechaCreacion = fechaCreacion,
+                        fechaFinalizacion = if (inspeccionJson.isNull("fechaFinalizacion")) null else inspeccionJson.getLong("fechaFinalizacion"),
+                        comentariosGenerales = inspeccionJson.getString("comentariosGenerales"),
+                        fechaTerminoEstimada = if (inspeccionJson.isNull("fechaTerminoEstimada")) null else inspeccionJson.getLong("fechaTerminoEstimada")
+                    )
+                    val newId = database.inspeccionDao().insertInspeccion(newInspeccion)
+                    inspeccionIdMap[oldId] = newId
+                }
             }
         }
 
@@ -798,6 +818,7 @@ object BackupUtils {
         put("fechaCreacion", inspeccion.fechaCreacion)
         put("fechaFinalizacion", inspeccion.fechaFinalizacion ?: JSONObject.NULL)
         put("comentariosGenerales", inspeccion.comentariosGenerales)
+        put("fechaTerminoEstimada", inspeccion.fechaTerminoEstimada ?: JSONObject.NULL)
     }
 
     private fun jsonToInspeccion(json: JSONObject): Inspeccion = Inspeccion(
@@ -810,7 +831,9 @@ object BackupUtils {
         inspeccionRecepcionId = if (json.isNull("inspeccionRecepcionId")) null else json.getLong("inspeccionRecepcionId"),
         fechaCreacion = json.getLong("fechaCreacion"),
         fechaFinalizacion = if (json.isNull("fechaFinalizacion")) null else json.getLong("fechaFinalizacion"),
-        comentariosGenerales = json.getString("comentariosGenerales")
+        comentariosGenerales = json.getString("comentariosGenerales"),
+        fechaTerminoEstimada = if (json.isNull("fechaTerminoEstimada")) null else json.getLong("fechaTerminoEstimada")
+
     )
 
     private fun respuestaToJson(respuesta: Respuesta): JSONObject = JSONObject().apply {

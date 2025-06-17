@@ -94,4 +94,33 @@ object InspectionAnalytics {
             }
         )
     }
+    /**
+     * Calcula métricas para inspección de entrega usando datos de recepción.
+     */
+    fun obtenerMetricasEntregaParaExportacion(
+        inspeccionEntrega: Inspeccion,
+        inspeccionRecepcion: Inspeccion
+    ): Map<String, Any?> {
+        val duracionReal = if (inspeccionEntrega.fechaFinalizacion != null) {
+            inspeccionEntrega.fechaFinalizacion - inspeccionRecepcion.fechaCreacion
+        } else null
+
+        val desviacion = if (inspeccionEntrega.fechaFinalizacion != null && inspeccionRecepcion.fechaTerminoEstimada != null) {
+            inspeccionEntrega.fechaFinalizacion - inspeccionRecepcion.fechaTerminoEstimada
+        } else null
+
+        return mapOf(
+            "duracionRealMs" to duracionReal,
+            "duracionRealFormateada" to duracionReal?.let { formatearDuracion(it) },
+            "desviacionEstimadaMs" to desviacion,
+            "desviacionEstimadaFormateada" to desviacion?.let { formatearDesviacion(it) },
+            "terminoEnFecha" to (desviacion?.let { kotlin.math.abs(it) <= TimeUnit.HOURS.toMillis(1) }),
+            "estadoTiempo" to when {
+                desviacion == null -> "N/A"
+                desviacion > TimeUnit.HOURS.toMillis(1) -> "Retrasado"
+                desviacion < -TimeUnit.HOURS.toMillis(1) -> "Adelantado"
+                else -> "A tiempo"
+            }
+        )
+    }
 }

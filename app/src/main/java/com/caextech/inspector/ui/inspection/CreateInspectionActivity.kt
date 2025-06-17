@@ -1,5 +1,6 @@
 package com.caextech.inspector.ui.inspection
 
+import android.util.Log
 import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
@@ -19,6 +20,10 @@ import android.app.TimePickerDialog
 import android.view.View
 import com.caextech.inspector.notifications.AlarmScheduler
 import java.util.*
+import android.content.pm.PackageManager
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import android.os.Build
 
 /**
  * Actividad para crear una nueva inspección de "Control Inicio de Intervención".
@@ -198,7 +203,17 @@ class CreateInspectionActivity : AppCompatActivity() {
                 is InspeccionViewModel.OperationStatus.Success -> {
                     // Programar alarma si tiene fecha estimada
                     if (fechaTerminoEstimada != null) {
-                        alarmScheduler.programarAlarmaInspeccion(status.id, fechaTerminoEstimada!!)
+                        Log.d("NotificationDebug", "Programando alarma para: ${Date(fechaTerminoEstimada!!)}")
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            checkNotificationPermission { granted ->
+                                Log.d("NotificationDebug", "Permiso notificaciones: $granted")
+                                if (granted) {
+                                    alarmScheduler.programarAlarmaInspeccion(status.id, fechaTerminoEstimada!!)
+                                }
+                            }
+                        } else {
+                            alarmScheduler.programarAlarmaInspeccion(status.id, fechaTerminoEstimada!!)
+                        }
                     }
                     // Inspección creada exitosamente, navegar a la pantalla de inspección
                     Toast.makeText(this, status.message, Toast.LENGTH_SHORT).show()
@@ -219,6 +234,18 @@ class CreateInspectionActivity : AppCompatActivity() {
         }
     }
 
+    private fun checkNotificationPermission(callback: (Boolean) -> Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                callback(true)
+            } else {
+                ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1002)
+                callback(false)
+            }
+        } else {
+            callback(true)
+        }
+    }
     /**
      * Valida que todos los campos obligatorios estén completos y sean válidos.
      *
@@ -260,6 +287,12 @@ class CreateInspectionActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         onBackPressed()
         return true
+    }
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1002) {
+            Log.d("NotificationDebug", "Respuesta permiso: ${grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED}")
+        }
     }
     private fun showEstimatedDatePicker() {
         val calendar = Calendar.getInstance()

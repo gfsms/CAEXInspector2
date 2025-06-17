@@ -11,9 +11,12 @@ import com.caextech.inspector.data.entities.CAEX
 import com.caextech.inspector.data.entities.Inspeccion
 import com.caextech.inspector.data.relations.InspeccionCompleta
 import com.caextech.inspector.data.relations.InspeccionConCAEX
+import com.caextech.inspector.data.relations.RespuestaConDetalles
 import com.caextech.inspector.data.repository.CAEXRepository
 import com.caextech.inspector.data.repository.InspeccionRepository
+import com.caextech.inspector.data.repository.RespuestaRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 /**
  * ViewModel para la gestión de inspecciones.
@@ -23,7 +26,8 @@ import kotlinx.coroutines.launch
  */
 class InspeccionViewModel(
     private val inspeccionRepository: InspeccionRepository,
-    private val caexRepository: CAEXRepository? = null
+    private val caexRepository: CAEXRepository? = null,
+    private val respuestaRepository: RespuestaRepository? = null
 ) : ViewModel() {
 
     // LiveData para notificar eventos de operaciones
@@ -307,24 +311,6 @@ class InspeccionViewModel(
         return inspeccionRepository.getInspeccionesByModeloEstadoYTipo(modeloCAEX, estado, tipo).asLiveData()
     }
 
-    /**
-     * Obtiene los detalles completos de una inspección.
-     *
-     * @param inspeccionId ID de la inspección
-     */
-    fun getInspeccionCompleta(inspeccionId: Long) = viewModelScope.launch {
-        try {
-            val inspeccion = inspeccionRepository.getInspeccionCompletaById(inspeccionId)
-            if (inspeccion != null) {
-                _inspeccionCompleta.value = inspeccion
-            } else {
-                _operationStatus.value = OperationStatus.Error("Inspección no encontrada")
-            }
-        } catch (e: Exception) {
-            _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
-        }
-    }
-
     // LiveData para almacenar la inspección completa actual
     private val _inspeccionCompleta = MutableLiveData<InspeccionCompleta>()
     val inspeccionCompleta: LiveData<InspeccionCompleta> = _inspeccionCompleta
@@ -348,7 +334,21 @@ class InspeccionViewModel(
         }
         return result
     }
-
+    /**
+     * Obtiene hallazgos no conformes de una inspección
+     */
+    fun getHallazgosNoConformes(inspeccionId: Long): LiveData<List<RespuestaConDetalles>> {
+        val result = MutableLiveData<List<RespuestaConDetalles>>()
+        viewModelScope.launch {
+            try {
+                val hallazgos = respuestaRepository?.getHallazgosByInspeccion(inspeccionId)?.first() ?: emptyList()
+                result.value = hallazgos
+            } catch (e: Exception) {
+                result.value = emptyList()
+            }
+        }
+        return result
+    }
     /**
      * Elimina una inspección.
      *
@@ -376,12 +376,13 @@ class InspeccionViewModel(
      */
     class InspeccionViewModelFactory(
         private val inspeccionRepository: InspeccionRepository,
-        private val caexRepository: CAEXRepository? = null
+        private val caexRepository: CAEXRepository? = null,
+        private val respuestaRepository: RespuestaRepository? = null  // AGREGAR
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(InspeccionViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return InspeccionViewModel(inspeccionRepository, caexRepository) as T
+                return InspeccionViewModel(inspeccionRepository, caexRepository, respuestaRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

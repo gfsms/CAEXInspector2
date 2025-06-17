@@ -69,6 +69,15 @@ class RespuestaRepository(private val respuestaDao: RespuestaDao) {
     }
 
     /**
+     * Obtiene hallazgos (NO_CONFORME y RECHAZADO) para una inspección específica.
+     */
+    fun getHallazgosByInspeccion(inspeccionId: Long): Flow<List<RespuestaConDetalles>> {
+        return respuestaDao.getRespuestasConDetallesByInspeccionOrdenadas(inspeccionId)
+            .map { respuestas ->
+                respuestas.filter { it.respuesta.estado in listOf("NO_CONFORME", "RECHAZADO") }
+            }
+    }
+    /**
      * Obtiene las respuestas con sus detalles para una categoría específica de una inspección.
      *
      * @param inspeccionId ID de la inspección
@@ -343,7 +352,6 @@ class RespuestaRepository(private val respuestaDao: RespuestaDao) {
     suspend fun countRespuestasByInspeccionYEstado(inspeccionId: Long, estado: String): Int {
         return respuestaDao.countRespuestasByInspeccionYEstado(inspeccionId, estado)
     }
-// Add these methods to RespuestaRepository.kt
 
     /**
      * Guarda una respuesta "Aceptado" para una pregunta en una inspección de entrega.
