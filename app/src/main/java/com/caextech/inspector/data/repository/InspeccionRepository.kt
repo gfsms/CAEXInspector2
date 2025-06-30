@@ -205,11 +205,16 @@ class InspeccionRepository(
             Inspeccion.TIPO_ENTREGA -> Inspeccion.ESTADO_CERRADA
             else -> Inspeccion.ESTADO_CERRADA // Por defecto, cerrar
         }
+        // DURACIÓN PROMEDIO DE INSPECCIÓN: 20 minutos
+        val DURACION_PROMEDIO_INSPECCION = 20 * 60 * 1000L // 20 minutos en milisegundos
+
+        // Calcular fecha finalización = fecha ingresada + duración promedio
+        val fechaFinalizacionCalculada = inspeccion.fechaCreacion + DURACION_PROMEDIO_INSPECCION
 
         // Actualizar la inspección
         val inspeccionActualizada = inspeccion.copy(
             estado = nuevoEstado,
-            fechaFinalizacion = System.currentTimeMillis(),
+            fechaFinalizacion = fechaFinalizacionCalculada, // <-- CAMBIO AQUÍ
             comentariosGenerales = comentariosGenerales
         )
 
