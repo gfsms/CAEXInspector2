@@ -1,5 +1,6 @@
 package com.caextech.inspector.ui.inspection
 
+import java.util.Calendar
 import android.util.Log
 import android.content.Intent
 import android.os.Bundle
@@ -33,7 +34,7 @@ class CreateInspectionActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityCreateInspectionBinding
     private lateinit var inspeccionViewModel: InspeccionViewModel
-
+    private var fechaInspeccionPersonalizada: Long = System.currentTimeMillis()
     // Variables para validación
     private var modeloSeleccionado: String = ""
     private var idEsValido: Boolean = false
@@ -86,6 +87,10 @@ class CreateInspectionActivity : AppCompatActivity() {
             }
             validarID()
         }
+        //  listener para fecha personalizable
+        binding.dateTimeEditText.setOnClickListener {
+            showDateTimePicker()
+        }
 
         // Listener para cambios en el ID
         binding.caexIdEditText.addTextChangedListener(object : TextWatcher {
@@ -107,13 +112,75 @@ class CreateInspectionActivity : AppCompatActivity() {
     }
 
     /**
-     * Actualiza el campo de fecha y hora con la fecha y hora actual.
+     * Actualiza el campo de fecha y hora - ahora editable.
      */
     private fun actualizarFechaHora() {
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
-        val fechaHoraActual = sdf.format(Date())
+        val fechaHoraActual = sdf.format(Date(fechaInspeccionPersonalizada))
         binding.dateTimeEditText.setText(fechaHoraActual)
+
+        // Hacer el campo clickeable y editable
+        binding.dateTimeEditText.isFocusable = false
+        binding.dateTimeEditText.isClickable = true
+        binding.dateTimeEditText.setCompoundDrawablesWithIntrinsicBounds(
+            0, 0, android.R.drawable.ic_menu_my_calendar, 0
+        )
     }
+
+    /**
+     * Muestra selector de fecha y hora.
+     */
+    private fun showDateTimePicker() {
+        val calendar = Calendar.getInstance()
+        calendar.timeInMillis = fechaInspeccionPersonalizada
+
+        // Primero seleccionar fecha
+        val datePickerDialog = DatePickerDialog(
+            this,
+            { _, year, month, dayOfMonth ->
+                // Luego seleccionar hora
+                val timePickerDialog = TimePickerDialog(
+                    this,
+                    { _, hourOfDay, minute ->
+                        // Validar y actualizar fecha
+                        val nuevaFecha = Calendar.getInstance().apply {
+                            set(year, month, dayOfMonth, hourOfDay, minute, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }
+
+                        if (validarFecha(nuevaFecha.timeInMillis)) {
+                            fechaInspeccionPersonalizada = nuevaFecha.timeInMillis
+                            actualizarFechaHora()
+                        }
+                    },
+                    calendar.get(Calendar.HOUR_OF_DAY),
+                    calendar.get(Calendar.MINUTE),
+                    true // formato 24 horas
+                )
+                timePickerDialog.show()
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+
+        // No permitir fechas futuras
+        datePickerDialog.datePicker.maxDate = System.currentTimeMillis()
+        datePickerDialog.show()
+    }
+
+    /**
+     * Valida que la fecha no sea futura.
+     */
+    private fun validarFecha(fecha: Long): Boolean {
+        val ahora = System.currentTimeMillis()
+        if (fecha > ahora) {
+            Toast.makeText(this, "No se puede seleccionar una fecha futura", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        return true
+    }
+
 
     /**
      * Valida si el ID ingresado es válido para el modelo seleccionado.
@@ -163,7 +230,7 @@ class CreateInspectionActivity : AppCompatActivity() {
     }
 
     /**
-     * Inicia el proceso de inspección si todos los campos son válidos.
+     * Inicia el proceso de inspección - ahora incluye fecha personalizada.
      */
     private fun iniciarInspeccion() {
         // Validar que todos los campos estén completos
@@ -180,13 +247,13 @@ class CreateInspectionActivity : AppCompatActivity() {
         val nombreInspector = binding.inspectorNameEditText.text.toString()
         val nombreSupervisor = binding.supervisorNameEditText.text.toString()
 
-        // Buscar o crear el CAEX
+        // Buscar o crear el CAEX con fecha personalizada
         inspeccionViewModel.buscarCAEXPorNumeroYCrearInspeccionConFecha(
             caexId,
             modeloSeleccionado,
             nombreInspector,
             nombreSupervisor,
-            fechaTerminoEstimada
+            fechaInspeccionPersonalizada // Pasar fecha personalizada
         )
     }
 

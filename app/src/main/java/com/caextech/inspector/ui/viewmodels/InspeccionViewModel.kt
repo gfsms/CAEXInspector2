@@ -18,6 +18,7 @@ import com.caextech.inspector.data.repository.RespuestaRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 
+
 /**
  * ViewModel para la gestión de inspecciones.
  *
@@ -55,6 +56,119 @@ class InspeccionViewModel(
     val inspeccionesPendienteCierreConCAEX: LiveData<List<InspeccionConCAEX>>
         get() = inspeccionRepository.getInspeccionesConCAEXByEstado(Inspeccion.ESTADO_PENDIENTE_CIERRE).asLiveData()
 
+    /**
+     * Busca un CAEX por número y crea una inspección con fecha personalizada.
+     */
+    fun buscarCAEXPorNumeroYCrearInspeccionConFecha(
+        numeroIdentificador: Int,
+        modelo: String,
+        nombreInspector: String,
+        nombreSupervisor: String,
+        fechaPersonalizada: Long
+    ) {
+        viewModelScope.launch {
+            try {
+                // Buscar CAEX existente
+                var caex = caexRepository?.getCAEXByNumeroIdentificador(numeroIdentificador)
+
+                if (caex == null) {
+                    // Crear nuevo CAEX si no existe
+                    val nuevoCAEX = CAEX(
+                        numeroIdentificador = numeroIdentificador,
+                        modelo = modelo
+                    )
+                    val caexId = caexRepository?.insert(nuevoCAEX) ?: throw Exception("Error al crear CAEX")
+                    caex = caexRepository?.getCAEXById(caexId) ?: throw Exception("Error al obtener CAEX creado")
+                }
+
+                // Crear inspección con fecha personalizada
+                val inspeccion = Inspeccion(
+                    caexId = caex.caexId,
+                    tipo = Inspeccion.TIPO_RECEPCION,
+                    estado = Inspeccion.ESTADO_ABIERTA,
+                    nombreInspector = nombreInspector,
+                    nombreSupervisor = nombreSupervisor,
+                    fechaCreacion = fechaPersonalizada // Usar fecha personalizada
+                )
+
+                val inspeccionId = inspeccionRepository.insert(inspeccion)
+
+                _operationStatus.value = OperationStatus.Success(
+                    id = inspeccionId,
+                    message = "Inspección creada exitosamente"
+                )
+
+            } catch (e: Exception) {
+                _operationStatus.value = OperationStatus.Error(
+                    e.message ?: "Error al crear la inspección"
+                )
+            }
+        }
+    }
+    /**
+     * Crea inspección de entrega con fecha personalizada.
+     */
+    fun crearInspeccionEntregaConFecha(
+        inspeccionRecepcionId: Long,
+        nombreInspector: String,
+        nombreSupervisor: String,
+        fechaPersonalizada: Long
+    ) {
+        viewModelScope.launch {
+            try {
+                val inspeccionRecepcion = inspeccionRepository.getInspeccionConCAEXById(inspeccionRecepcionId)
+                    ?: throw IllegalArgumentException("Inspección de recepción no encontrada")
+
+                val inspeccion = Inspeccion(
+                    caexId = inspeccionRecepcion.inspeccion.caexId,
+                    tipo = Inspeccion.TIPO_ENTREGA,
+                    estado = Inspeccion.ESTADO_ABIERTA,
+                    nombreInspector = nombreInspector,
+                    nombreSupervisor = nombreSupervisor,
+                    inspeccionRecepcionId = inspeccionRecepcionId,
+                    fechaCreacion = fechaPersonalizada
+                )
+
+                val inspeccionId = inspeccionRepository.insert(inspeccion)
+
+                _operationStatus.value = OperationStatus.Success(
+                    id = inspeccionId,
+                    message = "Inspección de entrega creada exitosamente"
+                )
+            } catch (e: Exception) {
+                _operationStatus.value = OperationStatus.Error(e.message ?: "Error al crear inspección de entrega")
+            }
+        }
+    }
+
+    /**
+     * Elimina una inspección abierta con validaciones.
+     */
+    fun eliminarInspeccionAbierta(inspeccionId: Long) {
+        viewModelScope.launch {
+            try {
+                inspeccionRepository.eliminarInspeccionAbierta(inspeccionId)
+                _operationStatus.value = OperationStatus.Success(
+                    id = 0,
+                    message = "Inspección eliminada correctamente"
+                )
+            } catch (e: Exception) {
+                _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
+            }
+        }
+    }
+
+    /**
+     * Verifica si una inspección puede ser eliminada.
+     */
+    suspend fun puedeEliminarInspeccion(inspeccionId: Long): Boolean {
+        return try {
+            val inspeccion = inspeccionRepository.getInspeccionConCAEXById(inspeccionId)
+            inspeccion?.inspeccion?.estado == Inspeccion.ESTADO_ABIERTA
+        } catch (e: Exception) {
+            false
+        }
+    }
     /**
      * Busca un CAEX por su número identificador y modelo, lo crea si no existe,
      * y luego crea una inspección de recepción para ese CAEX.

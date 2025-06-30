@@ -49,11 +49,13 @@ class ClosedInspectionsFragment : Fragment() {
         observeViewModel()
     }
 
+    // In ClosedInspectionsFragment.kt
+
     private fun setupRecyclerView() {
-        inspectionAdapter = InspectionAdapter { inspeccion ->
+        inspectionAdapter = InspectionAdapter(onItemClick = { inspeccion ->
             // For closed inspections, we could show details or history
             // We could implement a detail view activity in the future
-        }
+        })
 
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())

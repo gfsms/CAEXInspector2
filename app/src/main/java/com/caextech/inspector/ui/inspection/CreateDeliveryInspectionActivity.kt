@@ -1,5 +1,7 @@
 package com.caextech.inspector.ui.inspection
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -11,6 +13,7 @@ import com.caextech.inspector.R
 import com.caextech.inspector.databinding.ActivityCreateDeliveryInspectionBinding
 import com.caextech.inspector.ui.viewmodels.InspeccionViewModel
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -27,6 +30,9 @@ class CreateDeliveryInspectionActivity : AppCompatActivity() {
     private var inspeccionRecepcionId: Long = 0
     private var caexId: Long = 0
     private var caexNombre: String = ""
+
+    // Fecha personalizada para la inspección
+    private var fechaInspeccionPersonalizada: Long = System.currentTimeMillis()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,16 +79,79 @@ class CreateDeliveryInspectionActivity : AppCompatActivity() {
     }
 
     /**
-     * Sets up the UI with CAEX information.
+     * Sets up the UI with CAEX information - ahora fecha editable.
      */
     private fun setupUI() {
         // Set CAEX info
         binding.caexInfoText.text = caexNombre
 
-        // Set current date/time
+        // Set current date/time - ahora editable
+        actualizarFechaHora()
+
+        // Hacer el campo clickeable
+        binding.dateTimeEditText.setOnClickListener {
+            showDateTimePicker()
+        }
+        binding.dateTimeEditText.isFocusable = false
+        binding.dateTimeEditText.isClickable = true
+    }
+
+    /**
+     * Actualiza el campo de fecha y hora.
+     */
+    private fun actualizarFechaHora() {
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
-        val dateTimeStr = sdf.format(Date())
-        binding.dateTimeEditText.setText(dateTimeStr)
+        val fechaHoraStr = sdf.format(Date(fechaInspeccionPersonalizada))
+        binding.dateTimeEditText.setText(fechaHoraStr)
+    }
+
+    /**
+     * Muestra selector de fecha y hora.
+     */
+    private fun showDateTimePicker() {
+        val calendar = Calendar.getInstance()
+        calendar.timeInMillis = fechaInspeccionPersonalizada
+
+        val datePickerDialog = DatePickerDialog(
+            this,
+            { _, year, month, dayOfMonth ->
+                val timePickerDialog = TimePickerDialog(
+                    this,
+                    { _, hourOfDay, minute ->
+                        val nuevaFecha = Calendar.getInstance().apply {
+                            set(year, month, dayOfMonth, hourOfDay, minute, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }
+
+                        if (validarFecha(nuevaFecha.timeInMillis)) {
+                            fechaInspeccionPersonalizada = nuevaFecha.timeInMillis
+                            actualizarFechaHora()
+                        }
+                    },
+                    calendar.get(Calendar.HOUR_OF_DAY),
+                    calendar.get(Calendar.MINUTE),
+                    true
+                )
+                timePickerDialog.show()
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+
+        datePickerDialog.datePicker.maxDate = System.currentTimeMillis()
+        datePickerDialog.show()
+    }
+
+    /**
+     * Valida que la fecha no sea futura.
+     */
+    private fun validarFecha(fecha: Long): Boolean {
+        if (fecha > System.currentTimeMillis()) {
+            Toast.makeText(this, "No se puede seleccionar una fecha futura", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        return true
     }
 
     /**
@@ -116,7 +185,7 @@ class CreateDeliveryInspectionActivity : AppCompatActivity() {
     }
 
     /**
-     * Creates a delivery inspection if all fields are valid.
+     * Creates a delivery inspection - ACTUALIZADO con fecha personalizada.
      */
     private fun createDeliveryInspection() {
         // Validate fields
@@ -128,22 +197,20 @@ class CreateDeliveryInspectionActivity : AppCompatActivity() {
         binding.createDeliveryButton.isEnabled = false
         binding.createDeliveryButton.text = "Creando inspección..."
 
-
-
         // Get names from UI
         val inspectorName = binding.inspectorNameEditText.text.toString().trim()
         val supervisorName = binding.supervisorNameEditText.text.toString().trim()
 
         Log.d("DeliveryDebug", "Creating delivery inspection for reception ID: $inspeccionRecepcionId")
 
-
-        // Create delivery inspection
-        inspeccionViewModel.crearInspeccionEntrega(
+        // Create delivery inspection CON FECHA PERSONALIZADA
+        inspeccionViewModel.crearInspeccionEntregaConFecha(
             inspeccionRecepcionId,
             inspectorName,
-            supervisorName
+            supervisorName,
+            fechaInspeccionPersonalizada  // <-- ESTE ES EL CAMBIO PRINCIPAL
         )
-        Log.d("DeliveryDebug", "Called inspeccionViewModel.crearInspeccionEntrega")
+        Log.d("DeliveryDebug", "Called inspeccionViewModel.crearInspeccionEntregaConFecha")
     }
 
     /**

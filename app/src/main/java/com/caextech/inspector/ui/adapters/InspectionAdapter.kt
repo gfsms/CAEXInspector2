@@ -20,8 +20,10 @@ import java.util.Locale
 /**
  * Adapter for displaying Inspection items in a RecyclerView.
  */
-class InspectionAdapter(private val onItemClick: (InspeccionConCAEX) -> Unit) :
-    ListAdapter<InspeccionConCAEX, InspectionAdapter.InspectionViewHolder>(InspectionDiffCallback()) {
+class InspectionAdapter(
+    private val onItemClick: (InspeccionConCAEX) -> Unit,
+    private val onDeleteClick: ((InspeccionConCAEX) -> Unit)? = null // Callback para eliminar
+) : ListAdapter<InspeccionConCAEX, InspectionAdapter.InspectionViewHolder>(InspectionDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): InspectionViewHolder {
         val binding = ItemInspectionBinding.inflate(
@@ -33,71 +35,61 @@ class InspectionAdapter(private val onItemClick: (InspeccionConCAEX) -> Unit) :
     }
 
     override fun onBindViewHolder(holder: InspectionViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val inspection = getItem(position)
+        holder.bind(inspection)
     }
 
-    inner class InspectionViewHolder(private val binding: ItemInspectionBinding) :
-        RecyclerView.ViewHolder(binding.root) {
+    inner class InspectionViewHolder(
+        private val binding: ItemInspectionBinding
+    ) : RecyclerView.ViewHolder(binding.root) {
 
-        init {
-            binding.continueButton.setOnClickListener {
-                val position = adapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    onItemClick(getItem(position))
-                }
+        fun bind(inspection: InspeccionConCAEX) {
+            val context = binding.root.context
+
+            // Título de la inspección
+            val tipoTexto = when (inspection.inspeccion.tipo) {
+                Inspeccion.TIPO_RECEPCION -> "Recepción"
+                Inspeccion.TIPO_ENTREGA -> "Entrega"
+                else -> "Inspección"
             }
 
-            binding.root.setOnClickListener {
-                val position = adapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    // Ir a detalles de la inspección
-                    val context = binding.root.context
-                    val intent = Intent(context, InspectionDetailActivity::class.java)
-                    intent.putExtra(InspectionDetailActivity.EXTRA_INSPECCION_ID, getItem(position).inspeccion.inspeccionId)
-                    context.startActivity(intent)
-                }
-            }
-        }
+            binding.inspectionTitleText.text =
+                "$tipoTexto - ${inspection.caex.getNombreCompleto()}"
 
-        fun bind(inspeccionConCAEX: InspeccionConCAEX) {
-            val inspeccion = inspeccionConCAEX.inspeccion
-
-            // Set title with inspection type and CAEX info
-            binding.inspectionTitleText.text = inspeccionConCAEX.getTituloDescriptivo()
-
-            // Set status
-            when (inspeccion.estado) {
-                Inspeccion.ESTADO_ABIERTA -> {
-                    binding.statusText.text = "Estado: Abierta"
-                    binding.statusText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.status_pending))
-                    binding.continueButton.text = binding.root.context.getString(R.string.continue_inspection)
-                }
-                Inspeccion.ESTADO_PENDIENTE_CIERRE -> {
-                    binding.statusText.text = "Estado: Pendiente de cierre"
-                    binding.statusText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.status_pendiente_cierre))
-                    binding.continueButton.text = binding.root.context.getString(R.string.continue_delivery_inspection)
-                }
-                Inspeccion.ESTADO_CERRADA -> {
-                    binding.statusText.text = "Estado: Cerrada"
-                    binding.statusText.setTextColor(ContextCompat.getColor(binding.root.context, R.color.colorPrimary))
-                }
-                else -> {
-                    binding.statusText.text = inspeccionConCAEX.getEstadoDescriptivo()
-                }
+            // Estado con color
+            binding.statusText.text = when (inspection.inspeccion.estado) {
+                Inspeccion.ESTADO_ABIERTA -> "Abierta"
+                Inspeccion.ESTADO_PENDIENTE_CIERRE -> "Pendiente de Cierre"
+                Inspeccion.ESTADO_CERRADA -> "Cerrada"
+                else -> inspection.inspeccion.estado
             }
 
-            // Set inspector name
-            binding.inspectorText.text = inspeccion.nombreInspector
+            val statusColor = when (inspection.inspeccion.estado) {
+                Inspeccion.ESTADO_ABIERTA -> ContextCompat.getColor(context, R.color.status_pending)
+                Inspeccion.ESTADO_PENDIENTE_CIERRE -> ContextCompat.getColor(context, R.color.status_pendiente_cierre)
+                Inspeccion.ESTADO_CERRADA -> ContextCompat.getColor(context, R.color.status_conforme)
+                else -> ContextCompat.getColor(context, android.R.color.darker_gray)
+            }
+            binding.statusText.setTextColor(statusColor)
 
-            // Format date
+            // Inspector y fecha
+            binding.inspectorText.text = inspection.inspeccion.nombreInspector
+
             val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-            binding.dateText.text = sdf.format(Date(inspeccion.fechaCreacion))
+            binding.dateText.text = sdf.format(Date(inspection.inspeccion.fechaCreacion))
 
-            // Show or hide continue button depending on inspection state
-            binding.continueButton.visibility = if (inspeccion.estado != Inspeccion.ESTADO_CERRADA) {
-                View.VISIBLE
-            } else {
-                View.GONE
+            // Mostrar botón eliminar solo para inspecciones ABIERTA
+            val puedeEliminar = inspection.inspeccion.estado == Inspeccion.ESTADO_ABIERTA && onDeleteClick != null
+            binding.deleteButton.visibility = if (puedeEliminar) View.VISIBLE else View.GONE
+
+            // Click listeners
+            binding.root.setOnClickListener { onItemClick(inspection) }
+            binding.continueButton.setOnClickListener { onItemClick(inspection) }
+
+            if (puedeEliminar) {
+                binding.deleteButton.setOnClickListener {
+                    onDeleteClick?.invoke(inspection)
+                }
             }
         }
     }
@@ -108,7 +100,7 @@ class InspectionAdapter(private val onItemClick: (InspeccionConCAEX) -> Unit) :
         }
 
         override fun areContentsTheSame(oldItem: InspeccionConCAEX, newItem: InspeccionConCAEX): Boolean {
-            return oldItem.inspeccion == newItem.inspeccion && oldItem.caex == newItem.caex
+            return oldItem == newItem
         }
     }
 }

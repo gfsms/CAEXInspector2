@@ -1,5 +1,6 @@
 package com.caextech.inspector.ui.fragments
 
+import android.app.ProgressDialog
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -57,12 +58,15 @@ class OpenInspectionsFragment : Fragment() {
         setupRecyclerView()
         observeViewModel()
     }
-
     private fun setupRecyclerView() {
-        inspectionAdapter = InspectionAdapter { inspeccion ->
-            // Handle inspection item click
-            handleInspectionClick(inspeccion)
-        }
+        inspectionAdapter = InspectionAdapter(
+            onItemClick = { inspeccion ->
+                handleInspectionClick(inspeccion)
+            },
+            onDeleteClick = { inspeccion ->
+                showDeleteConfirmationDialog(inspeccion)
+            }
+        )
 
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
@@ -71,6 +75,56 @@ class OpenInspectionsFragment : Fragment() {
         }
     }
 
+    /**
+     * Muestra diálogo de confirmación para eliminar inspección.
+     */
+    private fun showDeleteConfirmationDialog(inspeccion: InspeccionConCAEX) {
+        val tipoInspeccion = when (inspeccion.inspeccion.tipo) {
+            Inspeccion.TIPO_RECEPCION -> "recepción"
+            Inspeccion.TIPO_ENTREGA -> "entrega"
+            else -> "inspección"
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Eliminar Inspección")
+            .setMessage("¿Está seguro de eliminar la inspección de $tipoInspeccion del ${inspeccion.caex.getNombreCompleto()}?\n\nEsta acción eliminará todos los datos asociados y no se puede deshacer.")
+            .setPositiveButton("Eliminar") { _, _ ->
+                deleteInspection(inspeccion)
+            }
+            .setNegativeButton("Cancelar", null)
+            .setIcon(android.R.drawable.ic_dialog_alert)
+            .show()
+    }
+
+    /**
+     * Elimina la inspección usando el ViewModel.
+     */
+    private fun deleteInspection(inspeccion: InspeccionConCAEX) {
+        // Mostrar loading
+        val progressDialog = ProgressDialog(requireContext())
+        progressDialog.setMessage("Eliminando inspección...")
+        progressDialog.setCancelable(false)
+        progressDialog.show()
+
+        // Eliminar inspección
+        inspeccionViewModel.eliminarInspeccionAbierta(inspeccion.inspeccion.inspeccionId)
+
+        // Observar resultado
+        inspeccionViewModel.operationStatus.observe(viewLifecycleOwner) { status ->
+            progressDialog.dismiss()
+
+            when (status) {
+                is InspeccionViewModel.OperationStatus.Success -> {
+                    Toast.makeText(requireContext(), status.message, Toast.LENGTH_SHORT).show()
+                    // La lista se actualizará automáticamente por LiveData
+                }
+                is InspeccionViewModel.OperationStatus.Error -> {
+                    Toast.makeText(requireContext(), "Error: ${status.message}", Toast.LENGTH_LONG).show()
+                }
+                else -> {}
+            }
+        }
+    }
     private fun observeViewModel() {
         // Observe open inspections
         inspeccionViewModel.inspeccionesAbiertasConCAEX.observe(viewLifecycleOwner) { inspecciones ->
