@@ -57,52 +57,110 @@ class InspeccionViewModel(
         get() = inspeccionRepository.getInspeccionesConCAEXByEstado(Inspeccion.ESTADO_PENDIENTE_CIERRE).asLiveData()
 
     /**
-     * Busca un CAEX por número y crea una inspección con fecha personalizada.
+     * Busca un CAEX por número y crea una inspección con fecha estimada.
+     * CORREGIDO: Este método ahora maneja fecha estimada, no fecha de creación.
      */
     fun buscarCAEXPorNumeroYCrearInspeccionConFecha(
         numeroIdentificador: Int,
         modelo: String,
         nombreInspector: String,
         nombreSupervisor: String,
-        fechaPersonalizada: Long
-    ) {
-        viewModelScope.launch {
-            try {
-                // Buscar CAEX existente
-                var caex = caexRepository?.getCAEXByNumeroIdentificador(numeroIdentificador)
-
-                if (caex == null) {
-                    // Crear nuevo CAEX si no existe
-                    val nuevoCAEX = CAEX(
-                        numeroIdentificador = numeroIdentificador,
-                        modelo = modelo
-                    )
-                    val caexId = caexRepository?.insert(nuevoCAEX) ?: throw Exception("Error al crear CAEX")
-                    caex = caexRepository?.getCAEXById(caexId) ?: throw Exception("Error al obtener CAEX creado")
-                }
-
-                // Crear inspección con fecha personalizada
-                val inspeccion = Inspeccion(
-                    caexId = caex.caexId,
-                    tipo = Inspeccion.TIPO_RECEPCION,
-                    estado = Inspeccion.ESTADO_ABIERTA,
-                    nombreInspector = nombreInspector,
-                    nombreSupervisor = nombreSupervisor,
-                    fechaCreacion = fechaPersonalizada // Usar fecha personalizada
-                )
-
-                val inspeccionId = inspeccionRepository.insert(inspeccion)
-
-                _operationStatus.value = OperationStatus.Success(
-                    id = inspeccionId,
-                    message = "Inspección creada exitosamente"
-                )
-
-            } catch (e: Exception) {
-                _operationStatus.value = OperationStatus.Error(
-                    e.message ?: "Error al crear la inspección"
-                )
+        fechaEstimada: Long // ✅ CORREGIDO: esto es fecha estimada, no de creación
+    ) = viewModelScope.launch {
+        try {
+            if (caexRepository == null) {
+                _operationStatus.value = OperationStatus.Error("No se puede realizar esta operación sin el CAEXRepository")
+                return@launch
             }
+
+            // Buscar el CAEX por número identificador
+            var caex = caexRepository.getCAEXByNumeroIdentificador(numeroIdentificador)
+
+            // Si no existe, crearlo
+            if (caex == null) {
+                val nuevoCAEX = CAEX(numeroIdentificador = numeroIdentificador, modelo = modelo)
+                if (!nuevoCAEX.esIdentificadorValido()) {
+                    throw IllegalArgumentException("El número identificador $numeroIdentificador no es válido para el modelo $modelo")
+                }
+                val caexId = caexRepository.insert(nuevoCAEX)
+                caex = caexRepository.getCAEXById(caexId)
+                    ?: throw IllegalStateException("Error al crear el CAEX")
+            } else {
+                if (caex.modelo != modelo) {
+                    throw IllegalArgumentException("El CAEX #$numeroIdentificador existe pero es de modelo ${caex.modelo}, no $modelo")
+                }
+            }
+
+            // Crear la inspección con fecha estimada (fecha de creación será actual)
+            val inspeccionId = inspeccionRepository.crearInspeccionRecepcionConFecha(
+                caex.caexId,
+                nombreInspector,
+                nombreSupervisor,
+                fechaEstimada // ✅ CORREGIDO: pasar fecha estimada
+            )
+
+            _operationStatus.value = OperationStatus.Success(
+                "Inspección de recepción creada correctamente",
+                inspeccionId
+            )
+        } catch (e: Exception) {
+            _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
+        }
+    }
+
+    /**
+     * Busca un CAEX por número y crea una inspección con fecha de creación personalizada (sin fecha estimada).
+     */
+    fun buscarCAEXPorNumeroYCrearInspeccionConFechaCreacion(
+        numeroIdentificador: Int,
+        modelo: String,
+        nombreInspector: String,
+        nombreSupervisor: String,
+        fechaCreacionPersonalizada: Long
+    ) = viewModelScope.launch {
+        try {
+            if (caexRepository == null) {
+                _operationStatus.value = OperationStatus.Error("No se puede realizar esta operación sin el CAEXRepository")
+                return@launch
+            }
+
+            // Buscar el CAEX por número identificador
+            var caex = caexRepository.getCAEXByNumeroIdentificador(numeroIdentificador)
+
+            // Si no existe, crearlo
+            if (caex == null) {
+                val nuevoCAEX = CAEX(numeroIdentificador = numeroIdentificador, modelo = modelo)
+                if (!nuevoCAEX.esIdentificadorValido()) {
+                    throw IllegalArgumentException("El número identificador $numeroIdentificador no es válido para el modelo $modelo")
+                }
+                val caexId = caexRepository.insert(nuevoCAEX)
+                caex = caexRepository.getCAEXById(caexId)
+                    ?: throw IllegalStateException("Error al crear el CAEX")
+            } else {
+                if (caex.modelo != modelo) {
+                    throw IllegalArgumentException("El CAEX #$numeroIdentificador existe pero es de modelo ${caex.modelo}, no $modelo")
+                }
+            }
+
+            // Crear la inspección con fecha de creación personalizada, SIN fecha estimada
+            val inspeccion = Inspeccion(
+                caexId = caex.caexId,
+                tipo = Inspeccion.TIPO_RECEPCION,
+                estado = Inspeccion.ESTADO_ABIERTA,
+                nombreInspector = nombreInspector,
+                nombreSupervisor = nombreSupervisor,
+                fechaCreacion = fechaCreacionPersonalizada,
+                fechaTerminoEstimada = null // Sin fecha estimada
+            )
+
+            val inspeccionId = inspeccionRepository.insert(inspeccion)
+
+            _operationStatus.value = OperationStatus.Success(
+                "Inspección de recepción creada correctamente",
+                inspeccionId
+            )
+        } catch (e: Exception) {
+            _operationStatus.value = OperationStatus.Error(e.message ?: "Error desconocido")
         }
     }
     /**

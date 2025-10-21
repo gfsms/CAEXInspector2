@@ -17,6 +17,7 @@ import com.caextech.inspector.data.entities.Inspeccion
 import com.caextech.inspector.databinding.FragmentOpenInspectionsBinding
 import com.caextech.inspector.ui.adapters.InspectionAdapter
 import com.caextech.inspector.ui.inspection.CreateDeliveryInspectionActivity
+import com.caextech.inspector.ui.inspection.InspectionDetailActivity
 import com.caextech.inspector.ui.inspection.InspectionQuestionnaireActivity
 import com.caextech.inspector.ui.viewmodels.InspeccionViewModel
 import com.caextech.inspector.data.relations.InspeccionConCAEX
@@ -58,10 +59,16 @@ class OpenInspectionsFragment : Fragment() {
         setupRecyclerView()
         observeViewModel()
     }
+
     private fun setupRecyclerView() {
         inspectionAdapter = InspectionAdapter(
-            onItemClick = { inspeccion ->
-                handleInspectionClick(inspeccion)
+            onDetailClick = { inspeccion ->
+                // Click en tarjeta → ir a detalles
+                navigateToInspectionDetail(inspeccion)
+            },
+            onContinueClick = { inspeccion ->
+                // Botón continuar → manejar según estado
+                handleInspectionContinue(inspeccion)
             },
             onDeleteClick = { inspeccion ->
                 showDeleteConfirmationDialog(inspeccion)
@@ -72,6 +79,53 @@ class OpenInspectionsFragment : Fragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = inspectionAdapter
             setHasFixedSize(true)
+        }
+    }
+
+    /**
+     * Navega a la pantalla de detalles de inspección.
+     */
+    private fun navigateToInspectionDetail(inspeccion: InspeccionConCAEX) {
+        val intent = Intent(requireContext(), InspectionDetailActivity::class.java).apply {
+            putExtra(InspectionDetailActivity.EXTRA_INSPECCION_ID, inspeccion.inspeccion.inspeccionId)
+        }
+        startActivity(intent)
+    }
+
+    /**
+     * Maneja el botón "Continuar" según el estado de la inspección.
+     */
+    private fun handleInspectionContinue(inspeccion: InspeccionConCAEX) {
+        val inspectionId = inspeccion.inspeccion.inspeccionId
+        val inspectionState = inspeccion.inspeccion.estado
+
+        if (inspectionState == Inspeccion.ESTADO_PENDIENTE_CIERRE) {
+            // Check if this inspection already has a delivery inspection
+            inspeccionViewModel.tieneInspeccionEntregaAsociada(inspectionId).observe(viewLifecycleOwner) { tieneEntrega ->
+                if (tieneEntrega) {
+                    // Already has a delivery inspection, find it and continue it
+                    inspeccionViewModel.getInspeccionEntregaByRecepcion(inspectionId).observe(viewLifecycleOwner) { entrega ->
+                        if (entrega != null) {
+                            // Navigate to the delivery inspection
+                            val intent = Intent(requireContext(), InspectionQuestionnaireActivity::class.java).apply {
+                                putExtra(InspectionQuestionnaireActivity.EXTRA_INSPECCION_ID, entrega.inspeccionId)
+                            }
+                            startActivity(intent)
+                        } else {
+                            Toast.makeText(requireContext(), "Error al obtener la inspección de entrega", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    // Ask if user wants to create a delivery inspection
+                    showCreateDeliveryDialog(inspectionId, inspeccion.caex.caexId, inspeccion.caex.getNombreCompleto())
+                }
+            }
+        } else {
+            // Regular open inspection, continue normally
+            val intent = Intent(requireContext(), InspectionQuestionnaireActivity::class.java).apply {
+                putExtra(InspectionQuestionnaireActivity.EXTRA_INSPECCION_ID, inspectionId)
+            }
+            startActivity(intent)
         }
     }
 
@@ -125,6 +179,7 @@ class OpenInspectionsFragment : Fragment() {
             }
         }
     }
+
     private fun observeViewModel() {
         // Observe open inspections
         inspeccionViewModel.inspeccionesAbiertasConCAEX.observe(viewLifecycleOwner) { inspecciones ->
@@ -138,45 +193,6 @@ class OpenInspectionsFragment : Fragment() {
                 binding.emptyView.visibility = View.GONE
                 binding.recyclerView.visibility = View.VISIBLE
             }
-        }
-    }
-
-    /**
-     * Handles clicks on inspection items.
-     * For regular open inspections, continues the inspection.
-     * For "Pending closure" inspections, offers to create a delivery inspection.
-     */
-    private fun handleInspectionClick(inspeccion: InspeccionConCAEX) {
-        val inspectionId = inspeccion.inspeccion.inspeccionId
-        val inspectionState = inspeccion.inspeccion.estado
-
-        if (inspectionState == Inspeccion.ESTADO_PENDIENTE_CIERRE) {
-            // Check if this inspection already has a delivery inspection
-            inspeccionViewModel.tieneInspeccionEntregaAsociada(inspectionId).observe(viewLifecycleOwner) { tieneEntrega ->
-                if (tieneEntrega) {
-                    // Already has a delivery inspection, find it and continue it
-                    inspeccionViewModel.getInspeccionEntregaByRecepcion(inspectionId).observe(viewLifecycleOwner) { entrega ->
-                        if (entrega != null) {
-                            // Navigate to the delivery inspection
-                            val intent = Intent(requireContext(), InspectionQuestionnaireActivity::class.java).apply {
-                                putExtra(InspectionQuestionnaireActivity.EXTRA_INSPECCION_ID, entrega.inspeccionId)
-                            }
-                            startActivity(intent)
-                        } else {
-                            Toast.makeText(requireContext(), "Error al obtener la inspección de entrega", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                } else {
-                    // Ask if user wants to create a delivery inspection - PASAR LOS DATOS DIRECTAMENTE
-                    showCreateDeliveryDialog(inspectionId, inspeccion.caex.caexId, inspeccion.caex.getNombreCompleto())
-                }
-            }
-        } else {
-            // Regular open inspection, continue normally
-            val intent = Intent(requireContext(), InspectionQuestionnaireActivity::class.java).apply {
-                putExtra(InspectionQuestionnaireActivity.EXTRA_INSPECCION_ID, inspectionId)
-            }
-            startActivity(intent)
         }
     }
 

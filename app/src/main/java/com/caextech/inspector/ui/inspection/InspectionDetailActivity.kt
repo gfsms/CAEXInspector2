@@ -64,6 +64,7 @@ class InspectionDetailActivity : AppCompatActivity() {
             }
         }
     }
+
     private fun mostrarHallazgosPendientes(inspeccionId: Long) {
         binding.hallazgosCard.visibility = View.VISIBLE
 
@@ -84,6 +85,7 @@ class InspectionDetailActivity : AppCompatActivity() {
             }
         }
     }
+
     private fun displayInspectionDetails(inspeccionConCAEX: com.caextech.inspector.data.relations.InspeccionConCAEX) {
         val inspeccion = inspeccionConCAEX.inspeccion
         val caex = inspeccionConCAEX.caex
@@ -93,8 +95,17 @@ class InspectionDetailActivity : AppCompatActivity() {
         supportActionBar?.subtitle = caex.getNombreCompleto()
 
         // Mostrar información básica
-        binding.tipoText.text = inspeccion.tipo
-        binding.estadoText.text = inspeccion.estado
+        binding.tipoText.text = when(inspeccion.tipo) {
+            "RECEPCION" -> "Recepción"
+            "ENTREGA" -> "Entrega"
+            else -> inspeccion.tipo
+        }
+        binding.estadoText.text = when(inspeccion.estado) {
+            "ABIERTA" -> "Abierta"
+            "PENDIENTE_CIERRE" -> "Pendiente de Cierre"
+            "CERRADA" -> "Cerrada"
+            else -> inspeccion.estado
+        }
         binding.inspectorText.text = inspeccion.nombreInspector
         binding.supervisorText.text = inspeccion.nombreSupervisor
 
@@ -102,68 +113,74 @@ class InspectionDetailActivity : AppCompatActivity() {
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         binding.fechaCreacionText.text = sdf.format(Date(inspeccion.fechaCreacion))
 
-        // Mostrar fecha estimada
-        if (inspeccion.fechaTerminoEstimada != null) {
-            binding.fechaEstimadaText.text = sdf.format(Date(inspeccion.fechaTerminoEstimada))
-        } else if (inspeccion.tipo == "ENTREGA" && inspeccion.inspeccionRecepcionId != null) {
-            inspeccionViewModel.getInspeccionConCAEXById(inspeccion.inspeccionRecepcionId).observe(this) { recepcion ->
-                recepcion?.inspeccion?.fechaTerminoEstimada?.let { fechaEstimada ->
-                    binding.fechaEstimadaText.text = sdf.format(Date(fechaEstimada))
-                }
-            }
-        }
+        // Manejar fecha estimada
+        handleFechaEstimada(inspeccion, sdf)
 
-// Mostrar fecha de finalización solo si está cerrada
-        if (inspeccion.fechaFinalizacion != null && inspeccion.estado == "CERRADA") {
+        // Mostrar fecha de finalización
+        if (inspeccion.fechaFinalizacion != null) {
             binding.fechaFinalizacionText.text = sdf.format(Date(inspeccion.fechaFinalizacion))
         } else {
-            // Ocultar la fila de finalización
             binding.fechaFinalizacionText.text = "Pendiente"
         }
 
-        // Mostrar fecha estimada (de recepción si es entrega)
-        if (inspeccion.fechaTerminoEstimada != null) {
-            binding.fechaEstimadaText.text = sdf.format(Date(inspeccion.fechaTerminoEstimada))
-        } else if (inspeccion.tipo == "ENTREGA" && inspeccion.inspeccionRecepcionId != null) {
-            // Obtener fecha estimada de la inspección de recepción
-            inspeccionViewModel.getInspeccionConCAEXById(inspeccion.inspeccionRecepcionId).observe(this) { recepcion ->
-                recepcion?.inspeccion?.fechaTerminoEstimada?.let { fechaEstimada ->
-                    binding.fechaEstimadaText.text = sdf.format(Date(fechaEstimada))
-                }
+        // Mostrar métricas o hallazgos según estado
+        handleContentDisplay(inspeccion)
+
+        // Mostrar comentarios
+        binding.comentariosText.text = inspeccion.comentariosGenerales.ifEmpty { "Sin comentarios" }
+    }
+
+    private fun handleFechaEstimada(inspeccion: com.caextech.inspector.data.entities.Inspeccion, sdf: SimpleDateFormat) {
+        when {
+            // Si la inspección tiene fecha estimada propia, mostrarla
+            inspeccion.fechaTerminoEstimada != null -> {
+                binding.fechaEstimadaText.text = sdf.format(Date(inspeccion.fechaTerminoEstimada))
+            }
+            // Si es inspección de entrega, buscar fecha estimada de la recepción
+            inspeccion.tipo == "ENTREGA" && inspeccion.inspeccionRecepcionId != null -> {
+                // Cargar la fecha de la recepción de forma asíncrona pero garantizar actualización
+                loadFechaEstimadaFromRecepcion(inspeccion.inspeccionRecepcionId, sdf)
+            }
+            // Si no hay fecha estimada disponible
+            else -> {
+                binding.fechaEstimadaText.text = "No definida"
             }
         }
+    }
 
+    private fun loadFechaEstimadaFromRecepcion(recepcionId: Long, sdf: SimpleDateFormat) {
+        // Establecer texto temporal
+        binding.fechaEstimadaText.text = "Cargando..."
 
-        // Mostrar métricas o hallazgos según estado
+        inspeccionViewModel.getInspeccionConCAEXById(recepcionId).observe(this) { recepcion ->
+            binding.fechaEstimadaText.text = if (recepcion?.inspeccion?.fechaTerminoEstimada != null) {
+                sdf.format(Date(recepcion.inspeccion.fechaTerminoEstimada))
+            } else {
+                "No definida"
+            }
+        }
+    }
+
+    private fun handleContentDisplay(inspeccion: com.caextech.inspector.data.entities.Inspeccion) {
         when {
             // Recepción abierta/pendiente - mostrar hallazgos
             inspeccion.tipo == "RECEPCION" && inspeccion.estado in listOf("ABIERTA", "PENDIENTE_CIERRE") -> {
-                binding.metricasCard.visibility = View.GONE
-                mostrarHallazgosPendientes(inspeccion.inspeccionId)
+                showHallazgos(inspeccion.inspeccionId)
             }
 
             // Entrega cerrada - métricas del ciclo completo
             inspeccion.tipo == "ENTREGA" && inspeccion.fechaFinalizacion != null && inspeccion.inspeccionRecepcionId != null -> {
-                binding.hallazgosCard.visibility = View.GONE
-                binding.metricasCard.visibility = View.VISIBLE
-                inspeccionViewModel.getInspeccionConCAEXById(inspeccion.inspeccionRecepcionId).observe(this) { recepcion ->
-                    recepcion?.let {
-                        val metricas = InspectionAnalytics.obtenerMetricasEntregaParaExportacion(inspeccion, it.inspeccion)
-                        binding.duracionText.text = "${metricas["duracionRealFormateada"]} (ciclo completo)"
-                        binding.desviacionText.text = metricas["desviacionEstimadaFormateada"] as? String ?: "N/A"
-                        binding.estadoTiempoText.text = metricas["estadoTiempo"] as? String ?: "N/A"
-                    }
-                }
+                showMetricasCicloCompleto(inspeccion)
             }
 
-            // Cualquier inspección cerrada - métricas
+            // Cualquier inspección cerrada - métricas individuales
             inspeccion.fechaFinalizacion != null -> {
-                binding.hallazgosCard.visibility = View.GONE
-                binding.metricasCard.visibility = View.VISIBLE
-                val metricas = InspectionAnalytics.obtenerMetricasParaExportacion(inspeccion)
-                binding.duracionText.text = metricas["duracionRealFormateada"] as? String ?: "N/A"
-                binding.desviacionText.text = metricas["desviacionEstimadaFormateada"] as? String ?: "N/A"
-                binding.estadoTiempoText.text = metricas["estadoTiempo"] as? String ?: "N/A"
+                showMetricasIndividuales(inspeccion)
+            }
+
+            // Inspección abierta que no es recepción (ej: entrega abierta)
+            inspeccion.estado == "ABIERTA" -> {
+                showHallazgos(inspeccion.inspeccionId)
             }
 
             // Otros casos - ocultar ambos
@@ -172,17 +189,57 @@ class InspectionDetailActivity : AppCompatActivity() {
                 binding.hallazgosCard.visibility = View.GONE
             }
         }
-        // Ajustar constraints según qué tarjeta esté visible
-        if (binding.hallazgosCard.visibility == View.VISIBLE) {
-            // Comentarios van después de hallazgos
-            val params = binding.comentariosCard.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            params.topToBottom = binding.hallazgosCard.id
-        } else {
-            // Comentarios van después de métricas
-            val params = binding.comentariosCard.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
-            params.topToBottom = binding.metricasCard.id
+
+        // Configurar constraints según qué tarjeta esté visible
+        updateConstraints()
+    }
+
+    private fun showHallazgos(inspeccionId: Long) {
+        binding.metricasCard.visibility = View.GONE
+        mostrarHallazgosPendientes(inspeccionId)
+    }
+
+    private fun showMetricasCicloCompleto(inspeccion: com.caextech.inspector.data.entities.Inspeccion) {
+        binding.hallazgosCard.visibility = View.GONE
+        binding.metricasCard.visibility = View.VISIBLE
+
+        inspeccionViewModel.getInspeccionConCAEXById(inspeccion.inspeccionRecepcionId!!).observe(this) { recepcion ->
+            recepcion?.let {
+                val metricas = InspectionAnalytics.obtenerMetricasEntregaParaExportacion(inspeccion, it.inspeccion)
+                binding.duracionText.text = "${metricas["duracionRealFormateada"]} (ciclo completo)"
+                binding.desviacionText.text = metricas["desviacionEstimadaFormateada"] as? String ?: "N/A"
+                binding.estadoTiempoText.text = metricas["estadoTiempo"] as? String ?: "N/A"
+            }
         }
-        binding.comentariosText.text = inspeccion.comentariosGenerales.ifEmpty { "Sin comentarios" }
+    }
+
+    private fun showMetricasIndividuales(inspeccion: com.caextech.inspector.data.entities.Inspeccion) {
+        binding.hallazgosCard.visibility = View.GONE
+        binding.metricasCard.visibility = View.VISIBLE
+
+        val metricas = InspectionAnalytics.obtenerMetricasParaExportacion(inspeccion)
+        binding.duracionText.text = metricas["duracionRealFormateada"] as? String ?: "N/A"
+        binding.desviacionText.text = metricas["desviacionEstimadaFormateada"] as? String ?: "N/A"
+        binding.estadoTiempoText.text = metricas["estadoTiempo"] as? String ?: "N/A"
+    }
+
+    private fun updateConstraints() {
+        // Ajustar constraints según qué tarjeta esté visible
+        val params = binding.comentariosCard.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+
+        when {
+            binding.hallazgosCard.visibility == View.VISIBLE -> {
+                params.topToBottom = binding.hallazgosCard.id
+            }
+            binding.metricasCard.visibility == View.VISIBLE -> {
+                params.topToBottom = binding.metricasCard.id
+            }
+            else -> {
+                params.topToBottom = binding.fechasCard.id
+            }
+        }
+
+        binding.comentariosCard.layoutParams = params
     }
 
     override fun onSupportNavigateUp(): Boolean {

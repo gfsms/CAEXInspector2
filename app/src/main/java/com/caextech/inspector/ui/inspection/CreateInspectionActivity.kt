@@ -230,7 +230,7 @@ class CreateInspectionActivity : AppCompatActivity() {
     }
 
     /**
-     * Inicia el proceso de inspección - ahora incluye fecha personalizada.
+     * Inicia el proceso de inspección - CORREGIDO para usar fecha estimada correctamente.
      */
     private fun iniciarInspeccion() {
         // Validar que todos los campos estén completos
@@ -247,14 +247,26 @@ class CreateInspectionActivity : AppCompatActivity() {
         val nombreInspector = binding.inspectorNameEditText.text.toString()
         val nombreSupervisor = binding.supervisorNameEditText.text.toString()
 
-        // Buscar o crear el CAEX con fecha personalizada
-        inspeccionViewModel.buscarCAEXPorNumeroYCrearInspeccionConFecha(
-            caexId,
-            modeloSeleccionado,
-            nombreInspector,
-            nombreSupervisor,
-            fechaInspeccionPersonalizada // Pasar fecha personalizada
-        )
+        // CORREGIDO: Usar fecha estimada si existe, si no usar fecha de creación personalizada
+        if (fechaTerminoEstimada != null) {
+            // Crear con fecha estimada
+            inspeccionViewModel.buscarCAEXPorNumeroYCrearInspeccionConFecha(
+                caexId,
+                modeloSeleccionado,
+                nombreInspector,
+                nombreSupervisor,
+                fechaTerminoEstimada!! // ✅ FECHA ESTIMADA
+            )
+        } else {
+            // Crear sin fecha estimada, usando fecha de creación personalizada
+            inspeccionViewModel.buscarCAEXPorNumeroYCrearInspeccionConFechaCreacion(
+                caexId,
+                modeloSeleccionado,
+                nombreInspector,
+                nombreSupervisor,
+                fechaInspeccionPersonalizada // ✅ FECHA CREACIÓN
+            )
+        }
     }
 
     /**

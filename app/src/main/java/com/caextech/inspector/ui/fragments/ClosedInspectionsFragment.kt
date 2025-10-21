@@ -1,5 +1,6 @@
 package com.caextech.inspector.ui.fragments
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -9,7 +10,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.caextech.inspector.CAEXInspectorApp
 import com.caextech.inspector.databinding.FragmentClosedInspectionsBinding
-import com.caextech.inspector.ui.adapters.InspectionAdapter
+import com.caextech.inspector.ui.adapters.ClosedInspectionAdapter
+import com.caextech.inspector.ui.inspection.InspectionDetailActivity
 import com.caextech.inspector.ui.viewmodels.InspeccionViewModel
 
 /**
@@ -21,7 +23,7 @@ class ClosedInspectionsFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var inspeccionViewModel: InspeccionViewModel
-    private lateinit var inspectionAdapter: InspectionAdapter
+    private lateinit var inspectionAdapter: ClosedInspectionAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -49,12 +51,13 @@ class ClosedInspectionsFragment : Fragment() {
         observeViewModel()
     }
 
-    // In ClosedInspectionsFragment.kt
-
     private fun setupRecyclerView() {
-        inspectionAdapter = InspectionAdapter(onItemClick = { inspeccion ->
-            // For closed inspections, we could show details or history
-            // We could implement a detail view activity in the future
+        inspectionAdapter = ClosedInspectionAdapter(onItemClick = { inspeccion ->
+            // Navigate to inspection details
+            val intent = Intent(requireContext(), InspectionDetailActivity::class.java).apply {
+                putExtra(InspectionDetailActivity.EXTRA_INSPECCION_ID, inspeccion.inspeccion.inspeccionId)
+            }
+            startActivity(intent)
         })
 
         binding.recyclerView.apply {
@@ -67,7 +70,7 @@ class ClosedInspectionsFragment : Fragment() {
     private fun observeViewModel() {
         // Observe closed inspections
         inspeccionViewModel.inspeccionesCerradasConCAEX.observe(viewLifecycleOwner) { inspecciones ->
-            inspectionAdapter.submitList(inspecciones)
+            inspectionAdapter.submitInspectionList(inspecciones)
 
             // Show empty view if list is empty
             if (inspecciones.isEmpty()) {

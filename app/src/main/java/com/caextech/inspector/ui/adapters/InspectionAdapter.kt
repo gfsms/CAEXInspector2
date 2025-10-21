@@ -21,7 +21,8 @@ import java.util.Locale
  * Adapter for displaying Inspection items in a RecyclerView.
  */
 class InspectionAdapter(
-    private val onItemClick: (InspeccionConCAEX) -> Unit,
+    private val onContinueClick: (InspeccionConCAEX) -> Unit, // Para continuar inspección
+    private val onDetailClick: (InspeccionConCAEX) -> Unit, // Para ver detalles
     private val onDeleteClick: ((InspeccionConCAEX) -> Unit)? = null // Callback para eliminar
 ) : ListAdapter<InspeccionConCAEX, InspectionAdapter.InspectionViewHolder>(InspectionDiffCallback()) {
 
@@ -82,9 +83,18 @@ class InspectionAdapter(
             val puedeEliminar = inspection.inspeccion.estado == Inspeccion.ESTADO_ABIERTA && onDeleteClick != null
             binding.deleteButton.visibility = if (puedeEliminar) View.VISIBLE else View.GONE
 
+            // Mostrar botón "Continuar" solo para inspecciones no cerradas
+            val esCerrada = inspection.inspeccion.estado == Inspeccion.ESTADO_CERRADA
+            binding.continueButton.visibility = if (esCerrada) View.GONE else View.VISIBLE
+
             // Click listeners
-            binding.root.setOnClickListener { onItemClick(inspection) }
-            binding.continueButton.setOnClickListener { onItemClick(inspection) }
+            binding.root.setOnClickListener {
+                onDetailClick(inspection) // Click en tarjeta va a detalles
+            }
+
+            binding.continueButton.setOnClickListener {
+                onContinueClick(inspection) // Botón continuar va al cuestionario
+            }
 
             if (puedeEliminar) {
                 binding.deleteButton.setOnClickListener {
